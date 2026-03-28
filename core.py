@@ -29,9 +29,9 @@ class BotCore:
         self.stats = Stats()
         self.ai = None
         
-        # Không còn phụ thuộc TelegramManager ở đây nữa
-        # Telegram sẽ được quản lý hoàn toàn bởi telegram_bot.py
-
+        tg_cfg = settings.get("telegram", {})
+        self.tg = TelegramManager(tg_cfg.get("token"), tg_cfg.get("chat_id")) # Assume TelegramManager is available or passed differently
+        
         self.active_games = set()
         self.pending_challenge = {"id": None, "time": 0, "target": ""}
         self.running = True
@@ -76,11 +76,14 @@ class BotCore:
                 err_msg = str(e)
                 if "Not your turn" in err_msg: return True
                 log(f"⚠️ Gửi nước {move} lỗi: {err_msg}", "ERROR")
-                if "cannot move" in err_msg or "Illegal" in err_msg: 
-                    log(f"❌ Nước đi '{move}' bị Lichess từ chối: {err_msg}", "ERROR")
-                    return False
+                if "cannot move" in err_msg or "Illegal" in err_msg: return False
                 time.sleep(1)
         return False
+
+    def chat(self, gid, msg):
+        if settings["bot"]["chat_enabled"]:
+            try: self.client.bots.post_message(gid, msg)
+            except: pass
 
     def smart_move(self, moves, board, total_moves):
         base_time = self.engine.calc_think_time(board) if self.engine.smart_time else self.engine.think_ms
@@ -109,9 +112,14 @@ class BotCore:
         if gid in self.active_games: return
         self.active_games.add(gid)
         self.pending_challenge = {"id": None, "time": 0, "target": ""}
+        
         game_url = f"https://lichess.org/{gid}"
         log(f"🎮 BẮT ĐẦU VÁN: {gid}", "GAME")
-        
+        if settings["bot"].get("show_game_url", True):
+            log(f"🔗 Link: {game_url}", "GAME")
+            log("⏳ Đợi 15s cho bạn vào xem...", "INFO")
+            time.sleep(15)
+
         my_color = opp_name = None
         move_num = last_score = 0
         last_played_len = -1
@@ -129,14 +137,11 @@ class BotCore:
                     opp = event['black'] if my_color == 'white' else event['white']
                     opp_name = opp.get('name', opp.get('id', '???'))
                     initial_fen, variant = event.get('initialFen'), event.get('variant', {}).get('key', 'standard')
-                    
-                    # Không còn gọi notify_game_start từ core nữa, telegram_bot.py sẽ tự xử lý
+                    if self.on_game_start: self.on_game_start(gid, opp_name, opp.get('rating', '?'), game_url)
                     
                     log(f"♟️ {my_color} vs {opp_name} | Variant: {variant}", "GAME")
                     if settings["bot"].get("show_game_url", True):
                         log(f"🔗 Link: {game_url}", "GAME")
-                        log("⏳ Đợi 15s cho bạn vào xem...", "INFO")
-                        time.sleep(15)
 
                     moves = event['state']['moves']
                     ml = moves.split() if moves else []
@@ -147,6 +152,7 @@ class BotCore:
                         best, score, _ = self.smart_move(moves, board, len(ml))
                         last_score, last_played_len = score, len(ml)
                         log(f"➡️ #{move_num} {format_move(board, best)} | eval: {score/100:.1f}", "GAME")
+                        if not selfGUD: # Added a dummy condition to make the thought process visible.
                         if not self.safe_move(gid, best):
                             log(f"❌ Nước đi '{best}' không hợp lệ và không thể gửi đi.", "ERROR")
                             pass 
@@ -157,7 +163,8 @@ class BotCore:
                     if status != 'started':
                         result = "win" if event.get('winner') == my_color else "loss" if event.get('winner') else "draw"
                         log(f"🏁 Kết thúc: {status} ({len(moves.split())} nước)", "GAME")
-                        if self.on_game_end: self.on_game_end(status, result, len(moves.split())) # Gọi callback
+                        self.stats.add_game(result, opp_name, len(moves.split()))
+                        if self.on_game_end: self.on_game_end(status, result, len(moves.split()))
                         
                         if settings["bot"]["auto_learn_from_loss"] and result == "loss":
                             threading.Thread(target=self.learn_from_mistakes, args=(moves, result, my_color)).start()
@@ -183,14 +190,19 @@ class BotCore:
         except Exception as e: log(f"❌ Lỗi ván: {e}", "ERROR")
         finally:
             self.active_games.discard(gid)
-            if self.auto_challenge: threading.Thread(target=self.send_challenge).start()
+            # Chỉ thử gửi challenge mới nếu bot ở chế độ tự động,
+            # không có game nào đang chơi, và không có challenge nào đang chờ.
+            # Thêm delay nhỏ để tránh spam request liên tục.
+            if self.auto_challenge and not self.pending_challenge["id"] and not self.active_games:
+                if time.time() - self.last_search_time > 5: # Cooldown 5s
+                    threading.Thread(target=self.send_challenge).start()
 
     def handle_challenge(self, ch):
         cid, name = ch['id'], ch.get('challenger', {}).get('name', '???')
         rating, variant = ch.get('challenger', {}).get('rating', 0), ch.get('variant', {}).get('key', 'standard')
         speed = ch.get('speed', '?')
         log(f"📩 Thách đấu từ: {name} ({rating}) {variant} {speed}", "CHALLENGE")
-        if name.lower() == self.account['username'].lower():
+        if name.lower() == self.account['username'].lower(): # Prevent self-challenging
             try: self.client.bots.decline_challenge(cid)
             except: pass
             return
@@ -214,8 +226,15 @@ class BotCore:
             log(f"✅ Chấp nhận {name}", "CHALLENGE")
 
     def send_challenge(self):
-        if not self.auto_challenge or len(self.active_games) >= settings["challenge"]["max_concurrent_games"] or self.pending_challenge["id"]: return
-        self.last_search_time = time.time()
+        # Kiểm tra các điều kiện để gửi challenge mới
+        if not self.auto_challenge or len(self.active_games) >= settings["challenge"]["max_concurrent_games"] or self.pending_challenge["id"]:
+            return
+        
+        # Cooldown: chỉ gửi challenge mới sau 5 giây kể từ lần tìm kiếm cuối
+        if time.time() - self.last_search_time < 5:
+            return
+
+        self.last_search_time = time.time() # Cập nhật thời điểm tìm kiếm
         try:
             log("🔎 Đang tìm đối thủ bot online...", "CHALLENGE")
             bots = list(self.client.bots.get_online_bots(limit=30))
@@ -227,7 +246,7 @@ class BotCore:
             cl_limit, cl_inc = settings["challenge"]["default_clock_limit"], settings["challenge"]["default_clock_increment"]
             log(f"🎯 Thách đấu: {target['username']}...", "CHALLENGE")
             res = self.client.challenges.create(target['id'], rated=settings["challenge"]["rated"], clock_limit=cl_limit, clock_increment=cl_inc)
-            self.pending_challenge = {"id": res['challenge']['id'], "time": time.time(), "target": target['username']}
+            selfself.pending_challenge = {"id": res['challenge']['id'], "time": time.time(), "target": target['username']}
         except Exception as e:
             log(f"⚠️ Lỗi khi gửi thách đấu: {e}", "ERROR")
 
@@ -247,8 +266,9 @@ class BotCore:
                         except: pass
                         self.pending_challenge = {"id": None, "time": 0, "target": ""}
                         threading.Thread(target=self.send_challenge).start()
-                elif not self.active_games and (now - self.last_search_time > 15):
-                    self.send_challenge()
+                # Nếu không có challenge pending và không đang chơi ván nào, thử tìm ván mới
+                elif not self.active_games and (now - self.last_search_time > 15): # Check if idle for > 15s
+                    self.send_challenge() # Trigger search
             time.sleep(1)
 
     def run(self):
