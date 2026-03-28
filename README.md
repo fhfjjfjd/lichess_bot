@@ -74,8 +74,9 @@ An automated Lichess chess bot optimized for Termux (Android), Linux, and Window
    ```
    - Upon startup, you will see a **Main Menu**:
      - `1. 🚀 Start Bot`: Choose your preferred game mode.
-     - `2. 🔑 Reset / Setup API`: Reset your Lichess Token or OpenRouter Key if needed.
-     - `3. ❌ Exit`: Close the application.
+     - `2. 🔄 Restart Bot`: Completely reload the application and configuration.
+     - `3. 🔑 Reset / Setup API`: Reset your Lichess Token or OpenRouter Key if needed.
+     - `4. ❌ Exit`: Close the application.
 
 4. **Upgrade to BOT Account:**
    - **IMPORTANT:** Upgrading to a BOT account is **permanent** and **irreversible**.

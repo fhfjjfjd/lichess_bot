@@ -1,4 +1,4 @@
-import os, json, random, time, threading, berserk
+import os, json, random, time, threading, berserk, sys
 from logger import log
 from stats import Stats
 from engine import Engine
@@ -6,17 +6,14 @@ from ai_manager import AIManager
 from board_utils import moves_to_board, get_phase, format_move, is_endgame_draw
 
 # ==================== CẤU HÌNH ====================
-cfg = json.load(open("config.json", encoding="utf-8"))
+def load_config():
+    return json.load(open("config.json", encoding="utf-8"))
+
+cfg = load_config()
 
 # Biến toàn cục
-client = None
-account = None
-engine = None
-stats = None
-ai = None
-USE_AI_MANAGEMENT = False
-USE_AI_MOVES = False
-AUTO_CHALLENGE = False
+client = account = engine = stats = ai = None
+USE_AI_MANAGEMENT = USE_AI_MOVES = AUTO_CHALLENGE = False
 
 # ==================== ĐĂNG NHẬP ====================
 def login():
@@ -54,18 +51,18 @@ def reset_api_menu():
     if choice == "1":
         tf = cfg["lichess"]["token_file"]
         if os.path.exists(tf): os.remove(tf)
-        log("🗑️ Đã xóa token Lichess cũ. Hãy khởi động lại Bot để nhập mới.", "WARN")
+        log("🗑️ Đã xóa token Lichess cũ.", "WARN")
     elif choice == "2":
         kf = cfg["openrouter"]["key_file"]
         if os.path.exists(kf): os.remove(kf)
-        log("🗑️ Đã xóa OpenRouter Key cũ. Hãy khởi động lại Bot để nhập mới.", "WARN")
+        log("🗑️ Đã xóa OpenRouter Key cũ.", "WARN")
     return
 
 # ==================== KHỞI TẠO BOT ====================
 def start_bot_flow():
     global engine, stats, ai, USE_AI_MANAGEMENT, USE_AI_MOVES, AUTO_CHALLENGE
     
-    login() # Đăng nhập trước
+    login() 
 
     print("\n" + "=" * 55)
     print("🎮 CHỌN CHẾ ĐỘ CHƠI:")
@@ -256,19 +253,21 @@ def send_challenge():
 
 # ==================== MAIN ====================
 def main():
+    global cfg
     while True:
+        cfg = load_config() # Tải lại cấu hình mỗi lần quay lại menu
         print("\n" + "=" * 55)
         print("🏠 MENU CHÍNH:")
         print("=" * 55)
         print("  1. 🚀 Bắt đầu Bot (Chọn chế độ)")
-        print("  2. 🔑 Reset / Cài đặt API")
-        print("  3. ❌ Thoát")
+        print("  2. 🔄 Khởi động lại Bot")
+        print("  3. 🔑 Reset / Cài đặt API")
+        print("  4. ❌ Thoát")
         print("=" * 55)
-        choice = input("Chọn (1-3): ").strip()
+        choice = input("Chọn (1-4): ").strip()
         
         if choice == "1":
             if start_bot_flow():
-                # Vòng lặp sự kiện chính của Bot
                 if AUTO_CHALLENGE: threading.Thread(target=send_challenge).start()
                 while True:
                     try:
@@ -284,21 +283,24 @@ def main():
                                     if AUTO_CHALLENGE: threading.Thread(target=send_challenge).start()
                             if AUTO_CHALLENGE and pending_challenge["id"]:
                                 if time.time() - pending_challenge["time"] > 40:
-                                    log(f"⏰ Hủy thách đấu {pending_challenge['id']}", "CHALLENGE")
+                                    log(f"⏰ Hủy thách đấu treo {pending_challenge['id']}", "CHALLENGE")
                                     try: client.challenges.cancel(pending_challenge["id"])
                                     except: pass
                                     pending_challenge = {"id": None, "time": 0}
                                     threading.Thread(target=send_challenge).start()
                     except KeyboardInterrupt:
-                        log("👋 Tắt bot...", "INFO")
-                        engine.quit()
-                        return # Trở về menu chính hoặc thoát hoàn toàn
+                        log("🔙 Quay lại Menu Chính...", "INFO")
+                        if engine: engine.quit()
+                        break # Quay lại Menu chính
                     except Exception as e:
                         log(f"⚠️ Lỗi kết nối: {e} - Thử lại...", "ERROR")
                         time.sleep(5)
         elif choice == "2":
-            reset_api_menu()
+            log("🔄 Đang khởi động lại toàn bộ chương trình...", "INFO")
+            os.execv(sys.executable, [sys.executable] + sys.argv)
         elif choice == "3":
+            reset_api_menu()
+        elif choice == "4":
             log("👋 Tạm biệt!", "INFO")
             break
 
