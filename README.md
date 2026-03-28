@@ -56,7 +56,16 @@ An automated Lichess chess bot optimized for Termux (Android), Linux, and Window
      - `Play games with the bot API`
    - Create an `openrouter.key` file: Paste your API Key from [OpenRouter](https://openrouter.ai/).
 
-3. **Run the Bot:**
+3. **Upgrade to BOT Account:**
+   - **IMPORTANT:** Upgrading to a BOT account is **permanent** and **irreversible**.
+   - Your account **must not have played any games** prior to the upgrade. It is recommended to create a new account specifically for the bot.
+   - Run the upgrade script:
+     ```bash
+     python3 upgrade_to_bot.py
+     ```
+   - Type `CONFIRM` when prompted to complete the process.
+
+4. **Run the Bot:**
    ```bash
    python3 huy.py
    ```
