@@ -1,66 +1,69 @@
-{
-    "lichess": {
-        "token_file": "lichess.token"
-    },
-    "openrouter": {
-        "key_file": "openrouter.key",
-        "model": "google/gemini-2.0-flash-001",
-        "max_tokens": 800
-    },
-    "stockfish": {
-        "think_time_ms": 3000,
-        "threads": 5,
-        "hash_mb": 400,
-        "skill_level": 20,
-        "min_think_ms": 500,
-        "max_think_ms": 8000
-    },
-    "bot": {
-        "default_mode": 1,
-        "auto_resign": true,
-        "resign_score": -10.0,
-        "resign_min_moves": 30,
-        "auto_draw": true,
-        "draw_score": 0.1,
-        "draw_min_moves": 60,
-        "ai_help_min_moves": 15,
-        "ai_help_threshold": 0.8,
-        "ai_help_losing": -1.5,
-        "chat_enabled": true,
-        "chat_greeting": "GL HF! 🤖 Stockfish 18",
-        "chat_gg": "GG! 🎉",
-        "chat_resign": "I resign. GG! 🤝",
-        "chat_draw": "Offering draw 🤝",
-        "smart_time": true,
-        "show_game_url": true,
-        "save_log_file": true
-    },
-    "challenge": {
-        "default_clock_limit": 180,
-        "default_clock_increment": 2,
-        "default_color": "random",
-        "rated": true,
-        "accept_variants": [
-            "standard",
-            "chess960"
-        ],
-        "min_rating": 0,
-        "max_rating": 4000,
-        "max_concurrent_games": 3
-    },
-    "training": {
-        "enabled": true,
-        "max_analysis_time_ms": 10000,
-        "auto_boost_on_loss": true,
-        "boost_time_ms": 2000
-    },
-    "telegram": {
-        "delay_between_games": 3,
-        "max_games": 0
-    },
-    "telegram": {
-        "enabled": true,
-        "token": "8667797356:AAGebAgdee8-_xYdO0xZ8K02_qg64expI_4",
-        "chat_id": "6890643705"
-    }
-}
+# Lichess Bot Configuration
+
+# Lichess API settings
+lichess:
+  token_file: lichess.token
+
+# OpenRouter AI settings
+openrouter:
+  key_file: openrouter.key
+  model: google/gemini-2.0-flash-001
+  max_tokens: 800
+
+# Stockfish Engine settings
+stockfish:
+  threads: 5
+  hash_mb: 400
+  skill_level: 20
+  think_time_ms: 3000
+  min_think_ms: 500
+  max_think_ms: 8000
+
+# Bot core settings
+bot:
+  default_mode: "1"
+  smart_time: true
+  chat_enabled: true
+  chat_greeting: "GL HF! 🤖 Stockfish 18"
+  chat_gg: "GG! 🎉"
+  chat_resign: "I resign. GG! 🤝"
+  chat_draw: "Offering draw 🤝"
+  auto_resign: true
+  resign_score: -150 # Resign if eval drops below this threshold (centipawns)
+  resign_min_moves: 20
+  draw_min_moves: 40
+  ai_help_threshold: 2.0 # AI helps if eval is within +/- 2.0 pawns
+  ai_help_losing: -1.5   # AI helps more aggressively if losing more than 1.5 pawns
+  ai_help_min_moves: 10   # Minimum moves played before AI help is considered
+  show_game_url: true
+  save_log_file: true
+  auto_learn_from_loss: true # Enable learning from losses
+  challenge_timeout_seconds: 80 # Timeout for outgoing challenges before cancelling
+
+# Challenge settings
+challenge:
+  max_concurrent_games: 3
+  accept_variants:
+    - standard
+    - chess960
+  min_rating: 0
+  max_rating: 4000
+  rated: true
+  default_clock_limit: 180
+  default_clock_increment: 2
+  default_color: "random"
+  delay_between_games: 3
+  max_games: 0 # 0 means unlimited
+
+# Training settings for self-improvement
+training:
+  enabled: true
+  max_analysis_time_ms: 10000
+  auto_boost_on_loss: true
+  boost_time_ms: 2000
+
+# Telegram integration settings
+telegram:
+  enabled: true
+  token: NHẬP_TOKEN_CỦA_BẠN_TẠI_ĐÂY
+  chat_id: NHẬP_ID_CỦA_BẠN_TẠI_ĐÂY
