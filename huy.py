@@ -4,6 +4,7 @@ from stats import Stats
 from engine import Engine
 from ai_manager import AIManager
 from core import BotCore # Import BotCore directly
+# from telegram_bot import main as run_telegram_bot # Not directly called from huy.py main menu in this branch
 
 # --- Global variables for flags and bot instance ---
 bot_instance = None
@@ -19,7 +20,6 @@ selected_mode_for_direct_run = None # Will store '1' through '5'
 
 # --- Helper Functions ---
 def get_path(filename):
-    # Get absolute path relative to the script's directory
     return os.path.abspath(os.path.join(os.path.dirname(__file__), filename))
 
 def load_settings():
@@ -114,17 +114,16 @@ def main():
             script_path = get_path(mode_scripts[mode_choice])
             log(f"Launching Telegram bot script: {script_path}")
             try:
-                # Use Popen for better process management, especially for long-running scripts like Telegram bot
                 proc = subprocess.Popen([sys.executable, script_path], cwd=BASE_DIR)
-                proc.wait() # Wait for the telegram bot process to finish
+                proc.wait()
             except KeyboardInterrupt:
                 log("Interrupted Telegram bot. Returning to main menu.", "INFO")
-                if proc: proc.terminate() # Ensure subprocess is terminated
+                if proc: proc.terminate()
             except FileNotFoundError:
                 log(f"❌ Error: Script '{script_path}' not found.", "ERROR")
             except Exception as e:
                 log(f"❌ An error occurred: {e}", "ERROR")
-                if proc: proc.terminate() # Ensure termination on error
+                if proc: proc.terminate()
         else: # Modes 1-4 run BotCore directly
             if run_bot_core(mode_choice): 
                 log("BotCore run loop finished.")
@@ -137,7 +136,7 @@ def main():
         cfg = load_settings()
         print("
 " + "=" * 55)
-        print("  MAIN MENU") # Using plain ASCII for menu title and standard formatting
+        print("   MAIN MENU") # Using plain ASCII for menu title and standard formatting
         print("=" * 55)
         print("  1. 🤖 SMART AUTO   (Mode 1)")
         print("  2. 🧠 AI FULL      (Mode 2)")
@@ -162,22 +161,21 @@ def main():
             script_name = scripts[choice]
             log(f"🚀 Khởi động {script_name}...")
             try:
-                # Use Popen for modes 1-4 to manage lifecycle better, especially for interruption
                 proc = subprocess.Popen([sys.executable, get_path(script_name)], cwd=BASE_DIR)
-                proc.wait() # Wait for the subprocess to finish
+                proc.wait() 
             except KeyboardInterrupt:
                 log("🔙 Quay lại Menu Chính...", "INFO")
-                if proc: # If subprocess was started, terminate it
+                if proc: 
                     proc.terminate()
                     proc.wait()
             except FileNotFoundError:
                 log(f"❌ Lỗi: Không tìm thấy script '{script_name}'.", "ERROR")
             except Exception as e:
                 log(f"❌ Lỗi không xác định khi chạy script: {e}", "ERROR")
-                if proc: proc.terminate() # Ensure termination on error
+                if proc: proc.terminate()
         elif choice == "6":
             log("🔄 Đang khởi động lại toàn bộ chương trình...", "INFO")
-            os.execv(sys.executable, [sys.executable] + sys.argv) # Pass original arguments
+            os.execv(sys.executable, [sys.executable] + sys.argv)
         elif choice == "7":
             reset_api_menu()
         elif choice == "8":
