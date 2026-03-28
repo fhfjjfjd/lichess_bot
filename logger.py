@@ -1,4 +1,9 @@
 from datetime import datetime
+import os
+
+# Xác định thư mục gốc của dự án
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOG_FILE = os.path.join(BASE_DIR, "bot.log")
 
 COLORS = {
     "INFO": "\033[97m",
@@ -16,7 +21,17 @@ COLORS = {
 }
 RESET = "\033[0m"
 
-def log(msg, level="INFO"):
+def log(msg, level="INFO", save_to_file=True):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     color = COLORS.get(level, COLORS["INFO"])
+    
+    # In ra console với màu sắc
     print(f"{color}[{timestamp}] [{level:>10}] {msg}{RESET}")
+    
+    # Ghi vào file bot.log (không có mã màu ANSI)
+    if save_to_file:
+        try:
+            with open(LOG_FILE, "a", encoding="utf-8") as f:
+                f.write(f"[{timestamp}] [{level:>10}] {msg}\n")
+        except:
+            pass

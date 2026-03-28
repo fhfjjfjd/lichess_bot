@@ -32,7 +32,8 @@
         "chat_resign": "I resign. GG! 🤝",
         "chat_draw": "Offering draw 🤝",
         "smart_time": true,
-        "show_game_url": true
+        "show_game_url": true,
+        "save_log_file": true
     },
     "challenge": {
         "default_clock_limit": 180,
