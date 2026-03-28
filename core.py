@@ -108,6 +108,8 @@ class BotCore:
         log(f"🎮 BẮT ĐẦU VÁN: {gid}", "GAME")
         if settings["bot"].get("show_game_url", True):
             log(f"🔗 Xem trực tiếp tại: {game_url}", "GAME")
+            log("⏳ Đợi 5s cho bạn vào xem rồi mới bắt đầu...", "INFO")
+            time.sleep(5)
             
         my_color = opp_name = None
         move_num = last_score = 0
