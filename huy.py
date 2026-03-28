@@ -1,10 +1,10 @@
-import os, json, sys, subprocess, threading, argparse
+import os, json, sys, threading, argparse
 from logger import log
 from stats import Stats
 from engine import Engine
 from ai_manager import AIManager
 from core import BotCore # Import BotCore directly
-# from telegram_bot import main as run_telegram_bot # We will call this via subprocess if mode 5
+from telegram_bot import main as run_telegram_bot # Import Telegram bot entry point
 
 # --- Global variables for flags and bot instance ---
 bot_instance = None
@@ -68,6 +68,17 @@ def setup_telegram_config():
             json.dump(cfg, f, indent=4, ensure_ascii=False)
         log("✅ Saved Telegram configuration.", "INFO")
 
+def run_bot_core(mode_choice):
+    global bot_instance, USE_AI_MANAGEMENT, USE_AI_MOVES, AUTO_CHALLENGE
+    
+    USE_AI_MANAGEMENT = mode_choice in ("1", "2", "4")
+    USE_AI_MOVES = mode_choice in ("2", "4")
+    AUTO_CHALLENGE = mode_choice in ("1", "2")
+    
+    bot_instance = BotCore(use_ai_mgmt=USE_AI_MANAGEMENT, use_ai_moves=USE_AI_MOVES, auto_challenge=AUTO_CHALLENGE)
+    
+    bot_instance.run()
+
 # --- Main execution logic ---
 def main():
     global cfg, pending_challenge, bot_instance, USE_AI_MANAGEMENT, USE_AI_MOVES, AUTO_CHALLENGE
@@ -88,7 +99,6 @@ def main():
         reset_api_menu()
         sys.exit(0)
 
-    # Scripts for modes 1-4 and Telegram mode 5
     mode_scripts = {
         "1": "mode1_smart_auto.py",
         "2": "mode2_ai_full.py",
@@ -105,7 +115,6 @@ def main():
             script_path = get_path(mode_scripts[mode_choice])
             log(f"Launching Telegram bot script: {script_path}")
             try:
-                # Run Telegram bot script as a separate process, blocking huy.py until it exits
                 subprocess.run([sys.executable, script_path], cwd=BASE_DIR)
             except KeyboardInterrupt:
                 log("Interrupted Telegram bot. Returning to main menu.", "INFO")
@@ -114,7 +123,7 @@ def main():
             except Exception as e:
                 log(f"❌ An error occurred: {e}", "ERROR")
         else: # Modes 1-4 run BotCore directly
-            if run_bot_core(mode_choice): # Run BotCore instance directly
+            if run_bot_core(mode_choice): 
                 log("BotCore run loop finished.")
             else:
                 log("❌ Failed to start bot core. Returning to menu.", "ERROR")
@@ -122,7 +131,7 @@ def main():
 
     # --- Fallback to Interactive Menu ---
     while True:
-        cfg = load_settings() # Reload settings for menu consistency
+        cfg = load_settings()
         print("
 " + "=" * 55)
         print("🏠 MAIN MENU:")
