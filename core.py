@@ -1,4 +1,4 @@
-import os, json, random, time, threading, berserk
+import os, json, random, time, threading, berserk, sys
 from logger import log
 from stats import Stats
 from engine import Engine
@@ -29,9 +29,9 @@ class BotCore:
         self.stats = Stats()
         self.ai = None
         
-        tg_cfg = settings.get("telegram", {})
-        self.tg = TelegramManager(tg_cfg.get("token"), tg_cfg.get("chat_id"))
-        
+        # Không còn phụ thuộc TelegramManager ở đây nữa
+        # Telegram sẽ được quản lý hoàn toàn bởi telegram_bot.py
+
         self.active_games = set()
         self.pending_challenge = {"id": None, "time": 0, "target": ""}
         self.running = True
@@ -68,7 +68,6 @@ class BotCore:
                                settings["openrouter"]["max_tokens"], sp)
 
     def safe_move(self, gid, move):
-        log(f"[DEBUG] safe_move: Attempting to send move '{move}' for game '{gid}'")
         for i in range(3):
             try:
                 self.client.bots.make_move(gid, move)
@@ -76,10 +75,10 @@ class BotCore:
             except Exception as e:
                 err_msg = str(e)
                 if "Not your turn" in err_msg: return True
-                log(f"⚠️ Gửi nước {move} lỗi (lần {i+1}): {err_msg}", "ERROR")
+                log(f"⚠️ Gửi nước {move} lỗi: {err_msg}", "ERROR")
                 if "cannot move" in err_msg or "Illegal" in err_msg: 
                     log(f"❌ Nước đi '{move}' bị Lichess từ chối: {err_msg}", "ERROR")
-                    return False # Stop retrying if move is illegal
+                    return False
                 time.sleep(1)
         return False
 
@@ -130,7 +129,8 @@ class BotCore:
                     opp = event['black'] if my_color == 'white' else event['white']
                     opp_name = opp.get('name', opp.get('id', '???'))
                     initial_fen, variant = event.get('initialFen'), event.get('variant', {}).get('key', 'standard')
-                    if self.on_game_start: self.on_game_start(gid, opp_name, opp.get('rating', '?'), game_url)
+                    
+                    # Không còn gọi notify_game_start từ core nữa, telegram_bot.py sẽ tự xử lý
                     
                     log(f"♟️ {my_color} vs {opp_name} | Variant: {variant}", "GAME")
                     if settings["bot"].get("show_game_url", True):
@@ -149,8 +149,6 @@ class BotCore:
                         log(f"➡️ #{move_num} {format_move(board, best)} | eval: {score/100:.1f}", "GAME")
                         if not self.safe_move(gid, best):
                             log(f"❌ Nước đi '{best}' không hợp lệ và không thể gửi đi.", "ERROR")
-                            # Optionally break or handle this severe error
-                            # For now, just log and continue if safe_move returns False after retries
                             pass 
 
                 elif event['type'] == 'gameState':
@@ -159,8 +157,7 @@ class BotCore:
                     if status != 'started':
                         result = "win" if event.get('winner') == my_color else "loss" if event.get('winner') else "draw"
                         log(f"🏁 Kết thúc: {status} ({len(moves.split())} nước)", "GAME")
-                        self.stats.add_game(result, opp_name, len(moves.split()))
-                        if self.on_game_end: self.on_game_end(status, result, len(moves.split()))
+                        if self.on_game_end: self.on_game_end(status, result, len(moves.split())) # Gọi callback
                         
                         if settings["bot"]["auto_learn_from_loss"] and result == "loss":
                             threading.Thread(target=self.learn_from_mistakes, args=(moves, result, my_color)).start()
@@ -257,7 +254,8 @@ class BotCore:
     def run(self):
         if not self.login(): return
         self.init_engine()
-        threading.Thread(target=self.timeout_monitor, daemon=True).start()
+        monitor_thread = threading.Thread(target=self.timeout_monitor, daemon=True)
+        monitor_thread.start()
         if self.auto_challenge: self.send_challenge()
         log("🚀 Bot đang lắng nghe sự kiện...", "INFO")
         try:
