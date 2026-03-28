@@ -89,7 +89,7 @@ def start_bot_flow():
     engine = Engine(
         threads=cfg["stockfish"]["threads"], hash_mb=cfg["stockfish"]["hash_mb"],
         skill=cfg["stockfish"]["skill_level"], think_ms=cfg["stockfish"]["think_time_ms"],
-        min_think=cfg["bot"]["min_think_ms"], max_think=cfg["bot"]["max_think_ms"],
+        min_think=cfg["stockfish"]["min_think_ms"], max_think=cfg["stockfish"]["max_think_ms"],
         smart_time=cfg["bot"]["smart_time"]
     )
     stats = Stats()
