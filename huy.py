@@ -253,7 +253,7 @@ def send_challenge():
 
 # ==================== MAIN ====================
 def main():
-    global cfg
+    global cfg, pending_challenge
     while True:
         cfg = load_config() # Tải lại cấu hình mỗi lần quay lại menu
         print("\n" + "=" * 55)
