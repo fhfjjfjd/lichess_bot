@@ -33,6 +33,7 @@ class BotCore:
         self.active_games = set()
         self.pending_challenge = {"id": None, "time": 0, "target": ""}
         self.running = True
+        self.last_search_time = 0
 
     def login(self):
         tf = get_path(settings["lichess"]["token_file"])
@@ -176,7 +177,14 @@ class BotCore:
         cid, name = ch['id'], ch.get('challenger', {}).get('name', '???')
         rating, variant = ch.get('challenger', {}).get('rating', 0), ch.get('variant', {}).get('key', 'standard')
         speed = ch.get('speed', '?')
-        log(f"📩 Thách đấu: {name} ({rating}) {variant} {speed}", "CHALLENGE")
+        log(f"📩 Thách đấu từ: {name} ({rating}) {variant} {speed}", "CHALLENGE")
+        
+        # Không tự chấp nhận chính mình
+        if name.lower() == self.account['username'].lower():
+            try: self.client.bots.decline_challenge(cid)
+            except: pass
+            return
+
         if len(self.active_games) >= settings["challenge"]["max_concurrent_games"]:
             try: self.client.bots.decline_challenge(cid)
             except: pass
@@ -197,51 +205,58 @@ class BotCore:
 
     def send_challenge(self):
         if not self.auto_challenge or len(self.active_games) >= settings["challenge"]["max_concurrent_games"] or self.pending_challenge["id"]: return
+        
+        self.last_search_time = time.time()
         try:
+            log("🔎 Đang tìm đối thủ bot online...", "CHALLENGE")
             bots = list(self.client.bots.get_online_bots(limit=30))
-            opps = [b for b in bots if b['id'] != self.account['id']]
-            if not opps: return
+            opps = [b for b in bots if b['username'].lower() != self.account['username'].lower()]
+            if not opps:
+                log("⚠️ Không tìm thấy bot nào khác online. Thử lại sau...", "CHALLENGE")
+                return
             target = random.choice(opps)
             cl_limit, cl_inc = settings["challenge"]["default_clock_limit"], settings["challenge"]["default_clock_increment"]
             log(f"🎯 Thách đấu: {target['username']}...", "CHALLENGE")
             res = self.client.challenges.create(target['id'], rated=settings["challenge"]["rated"], clock_limit=cl_limit, clock_increment=cl_inc)
             self.pending_challenge = {"id": res['challenge']['id'], "time": time.time(), "target": target['username']}
-        except: pass
+        except Exception as e:
+            log(f"⚠️ Lỗi khi gửi thách đấu: {e}", "ERROR")
 
-    # Luồng giám sát Timeout riêng biệt
     def timeout_monitor(self):
-        log("🕵️ Khởi động trình giám sát Timeout...", "INFO")
+        log("🕵️ Trình giám sát đang chạy...", "INFO")
         last_log_time = 0
         while self.running:
-            if self.auto_challenge and self.pending_challenge["id"]:
-                elapsed = int(time.time() - self.pending_challenge["time"])
-                remaining = 40 - elapsed
+            now = time.time()
+            if self.auto_challenge:
+                # Trường hợp 1: Đang có thách đấu chờ đối thủ nhận
+                if self.pending_challenge["id"]:
+                    elapsed = int(now - self.pending_challenge["time"])
+                    remaining = 40 - elapsed
+                    if elapsed % 10 == 0 and elapsed != last_log_time:
+                        log(f"⏳ Đợi {self.pending_challenge['target']}... ({remaining}s còn lại)", "CHALLENGE")
+                        last_log_time = elapsed
+                    
+                    if elapsed >= 40:
+                        log(f"⏰ Quá 40s! Hủy thách đấu với {self.pending_challenge['target']}.", "CHALLENGE")
+                        try: self.client.challenges.cancel(self.pending_challenge["id"])
+                        except: pass
+                        self.pending_challenge = {"id": None, "time": 0, "target": ""}
+                        threading.Thread(target=self.send_challenge).start()
                 
-                # Log mỗi 10 giây hoặc khi hết giờ
-                if elapsed % 10 == 0 and elapsed != last_log_time:
-                    log(f"⏳ Đợi {self.pending_challenge['target']}... ({remaining}s còn lại)", "CHALLENGE")
-                    last_log_time = elapsed
-                
-                if elapsed >= 40:
-                    log(f"⏰ Hết 40s! Hủy thách đấu với {self.pending_challenge['target']}.", "CHALLENGE")
-                    try:
-                        self.client.challenges.cancel(self.pending_challenge["id"])
-                    except:
-                        pass
-                    self.pending_challenge = {"id": None, "time": 0, "target": ""}
-                    threading.Thread(target=self.send_challenge).start()
+                # Trường hợp 2: Đang rảnh (Idle) - Không chơi, không có thách đấu nào đang gửi
+                elif not self.active_games and (now - self.last_search_time > 15):
+                    # Nếu rảnh quá 15s mà không có gì diễn ra, thử tìm ván mới
+                    self.send_challenge()
             
             time.sleep(1)
 
     def run(self):
         self.login()
         self.init_engine()
-        
-        # Bắt đầu luồng monitor
         monitor_thread = threading.Thread(target=self.timeout_monitor, daemon=True)
         monitor_thread.start()
         
-        if self.auto_challenge: threading.Thread(target=self.send_challenge).start()
+        if self.auto_challenge: self.send_challenge()
         log("🚀 Bot đang lắng nghe sự kiện...", "INFO")
         try:
             for event in self.client.board.stream_incoming_events():
@@ -251,8 +266,9 @@ class BotCore:
                 elif event['type'] == 'challenge':
                     self.handle_challenge(event['challenge'])
                 elif event['type'] in ('challengeDeclined', 'challengeCanceled'):
-                    if self.pending_challenge["id"] == event.get('challenge', {}).get('id'):
-                        log(f"😔 Đối thủ đã từ chối hoặc hủy.", "CHALLENGE")
+                    event_cid = event.get('challenge', {}).get('id')
+                    if self.pending_challenge["id"] == event_cid:
+                        log(f"😔 Thách đấu đã bị từ chối/hủy.", "CHALLENGE")
                         self.pending_challenge = {"id": None, "time": 0, "target": ""}
                         if self.auto_challenge: threading.Thread(target=self.send_challenge).start()
         except KeyboardInterrupt:
