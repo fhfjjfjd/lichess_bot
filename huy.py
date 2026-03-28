@@ -55,8 +55,11 @@ def main():
         if choice in scripts:
             script_path = get_path(scripts[choice])
             log(f"🚀 Khởi động {scripts[choice]}...")
-            # Chạy script với thư mục làm việc (cwd) là thư mục gốc của bot
-            subprocess.run([sys.executable, script_path], cwd=BASE_DIR)
+            try:
+                # Chạy script với thư mục làm việc (cwd) là thư mục gốc của bot
+                subprocess.run([sys.executable, script_path], cwd=BASE_DIR)
+            except KeyboardInterrupt:
+                log("🔙 Đã dừng bot và quay lại Menu Chính.", "INFO")
         elif choice == "5":
             log("🔄 Đang khởi động lại...", "INFO")
             os.execv(sys.executable, [sys.executable] + sys.argv)
