@@ -1,73 +1,73 @@
 # ♟️ Lichess Bot - Stockfish 18 + Gemini AI
 
-Một bot chơi cờ vua tự động trên Lichess được tối ưu hóa cho môi trường Termux (Android), Linux và Windows. Tích hợp công cụ mạnh nhất thế giới **Stockfish 18** và trí tuệ nhân tạo **Gemini AI** (thông qua OpenRouter) để đưa ra các quyết định thông minh và giao tiếp với đối thủ.
+An automated Lichess chess bot optimized for Termux (Android), Linux, and Windows. It integrates the world's strongest engine, **Stockfish 18**, and **Gemini AI** (via OpenRouter) for intelligent decision-making and interaction with opponents.
 
-## 🌟 Tính năng nổi bật
+## 🌟 Key Features
 
-- **Engine cực mạnh:** Sử dụng Stockfish 18 (bản mới nhất) với khả năng phân tích hàng triệu nước đi/giây.
-- **Tích hợp AI:** Sử dụng Gemini 2.0 Flash để chọn nước đi tối ưu trong các thế cờ khó và phân tích ván đấu sau khi kết thúc.
-- **4 Chế độ chơi linh hoạt:**
-  1. `NOAI ĐẦY ĐỦ`: Tự động tìm ván và đánh bằng Stockfish thuần túy.
-  2. `AI ĐẦY ĐỦ`: Tự động tìm ván, AI tham gia quyết định mọi nước đi khó.
-  3. `CHỈ CHƠI`: Chế độ thụ động, chỉ chờ người khác thách đấu hoặc bạn tự thách đấu trên web.
-  4. `🧠 AI CHỈ CHƠI`: Chế độ thụ động nhưng có AI hỗ trợ đánh hộ.
-- **Hỗ trợ Chess960:** Tự động nhận diện và xử lý biến thể cờ vua Fischer Random.
-- **Quản lý thông minh:** Tự động hủy thách đấu nếu đối thủ không nhận lời sau 40 giây.
-- **Thống kê chi tiết:** Theo dõi tỉ lệ thắng/thua, chuỗi thắng, và hiệu quả của AI.
+- **Extreme Performance:** Powered by Stockfish 18, capable of analyzing millions of positions per second.
+- **AI Integration:** Uses Gemini 2.0 Flash to select optimal moves in complex positions and analyze games after they finish.
+- **4 Flexible Game Modes:**
+  1. `NOAI FULL`: Fully automated, uses pure Stockfish for all moves.
+  2. `AI FULL`: Fully automated, AI assists in difficult tactical decisions.
+  3. `ONLY PLAY`: Passive mode, waits for incoming challenges or your manual challenges on the web.
+  4. `🧠 AI ONLY PLAY`: Passive mode with AI assistance for moves.
+- **Chess960 Support:** Automatically detects and handles Fischer Random (Chess960) variants.
+- **Smart Management:** Automatically cancels pending challenges if not accepted within 40 seconds.
+- **Detailed Statistics:** Tracks win/loss ratios, win streaks, and AI effectiveness.
 
-## 🛠️ Yêu cầu hệ thống
+## 🛠️ System Requirements
 
-- **Hệ điều hành:** Android (Termux), Linux hoặc Windows.
-- **Ngôn ngữ:** Python 3.10+.
-- **Engine:** `stockfish` (Sẵn có trên các kho ứng dụng hoặc trang chủ Stockfish).
+- **OS:** Android (Termux), Linux, or Windows.
+- **Language:** Python 3.10+.
+- **Engine:** `stockfish` (Available in most package managers or from the Stockfish homepage).
 
-## 🚀 Cài đặt nhanh
+## 🚀 Quick Start
 
-### Cách 1: Sử dụng Script cài đặt tự động (Khuyên dùng)
+### Method 1: Automatic Installation (Recommended)
 
-1. **Trên Termux / Linux:**
+1. **On Termux / Linux:**
    ```bash
    git clone https://github.com/fhfjjfjd/lichess_bot
    cd lichess_bot
    bash install.sh
    ```
 
-2. **Trên Windows:**
-   - Tải dự án về máy.
-   - Chạy file `install.bat` bằng cách nháy đúp chuột.
+2. **On Windows:**
+   - Download the project.
+   - Double-click the `install.bat` file.
 
 ---
 
-### Cách 2: Cài đặt thủ công
+### Method 2: Manual Installation
 
-1. **Cài đặt các gói cần thiết:**
+1. **Install required packages:**
    ```bash
    pkg install python git stockfish -y
    pip install berserk python-chess openai==0.28.1 requests
    ```
 
-2. **Cấu hình mã xác thực (Tokens):**
-   - Tạo file `lichess.token`: Dán mã API Token từ [Lichess API Settings](https://lichess.org/account/oauth/token).
-   - Tạo file `openrouter.key`: Dán mã API Key từ [OpenRouter](https://openrouter.ai/).
+2. **Configure Authentication (Tokens):**
+   - Create a `lichess.token` file: Paste your API Token from [Lichess API Settings](https://lichess.org/account/oauth/token).
+   - Create an `openrouter.key` file: Paste your API Key from [OpenRouter](https://openrouter.ai/).
 
-3. **Chạy Bot:**
+3. **Run the Bot:**
    ```bash
    python3 huy.py
    ```
 
-## ⚙️ Cấu hình (`config.json`)
+## ⚙️ Configuration (`config.json`)
 
-Bạn có thể tùy chỉnh các thông số trong file `config.json`:
-- `threads`: Số nhân CPU cho Stockfish (Khuyên dùng: 2-4 trên điện thoại).
-- `think_time_ms`: Thời gian Stockfish suy nghĩ cho mỗi nước đi.
-- `ai_help_threshold`: Độ khó của thế cờ để bot bắt đầu hỏi AI.
-- `auto_resign`: Tự động xin thua khi thế cờ quá yếu (tránh lãng phí thời gian).
+You can customize various parameters in `config.json`:
+- `threads`: Number of CPU cores for Stockfish (Recommended: 2-4 on mobile).
+- `think_time_ms`: Time Stockfish thinks for each move.
+- `ai_help_threshold`: Position evaluation threshold for the bot to ask AI for help.
+- `auto_resign`: Automatically resign when the position is too weak.
 
-## ⚠️ Lưu ý quan trọng
+## ⚠️ Important Notes
 
-- **Tài khoản BOT:** Bạn **bắt buộc** phải sử dụng tài khoản Lichess đã được nâng cấp lên chế độ BOT. Nếu dùng tài khoản người dùng bình thường, bạn sẽ bị khóa tài khoản ngay lập tức.
-- **Bảo mật:** Tuyệt đối không bao giờ chia sẻ file `lichess.token` và `openrouter.key` cho bất kỳ ai.
+- **BOT Account:** You **must** use a Lichess account upgraded to BOT mode. Using a normal user account will result in an immediate ban.
+- **Security:** Never share your `lichess.token` and `openrouter.key` files with anyone.
 
-## 📜 Giấy phép
+## 📜 License
 
-Dự án này được phát hành dưới giấy phép mã nguồn mở. Chúc bạn có những trải nghiệm tuyệt vời với "Đại kiện tướng" bỏ túi này!
+This project is released under the MIT License. Enjoy your experience with this pocket-sized "Grandmaster"!
