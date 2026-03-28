@@ -4,7 +4,7 @@ from stats import Stats
 from engine import Engine
 from ai_manager import AIManager
 from core import BotCore # Import BotCore directly
-from telegram_bot import main as run_telegram_bot # Import Telegram bot entry point
+# from telegram_bot import main as run_telegram_bot # We will call this via subprocess if mode 5
 
 # --- Global variables for flags and bot instance ---
 bot_instance = None
@@ -68,16 +68,6 @@ def setup_telegram_config():
             json.dump(cfg, f, indent=4, ensure_ascii=False)
         log("✅ Saved Telegram configuration.", "INFO")
 
-def run_bot_core(mode_choice):
-    global bot_instance, USE_AI_MANAGEMENT, USE_AI_MOVES, AUTO_CHALLENGE
-    
-    USE_AI_MANAGEMENT = mode_choice in ("1", "2", "4")
-    USE_AI_MOVES = mode_choice in ("2", "4")
-    AUTO_CHALLENGE = mode_choice in ("1", "2")
-    
-    bot_instance = BotCore(use_ai_mgmt=USE_AI_MANAGEMENT, use_ai_moves=USE_AI_MOVES, auto_challenge=AUTO_CHALLENGE)
-    bot_instance.run()
-
 # --- Main execution logic ---
 def main():
     global cfg, pending_challenge, bot_instance, USE_AI_MANAGEMENT, USE_AI_MOVES, AUTO_CHALLENGE
@@ -119,16 +109,13 @@ def main():
                 subprocess.run([sys.executable, script_path], cwd=BASE_DIR)
             except KeyboardInterrupt:
                 log("Interrupted Telegram bot. Returning to main menu.", "INFO")
-                # Graceful exit from subprocess, return to menu
             except FileNotFoundError:
                 log(f"❌ Error: Script '{script_path}' not found.", "ERROR")
             except Exception as e:
                 log(f"❌ An error occurred: {e}", "ERROR")
-        else: # Modes 1-4 run BotCore directly from huy.py
+        else: # Modes 1-4 run BotCore directly
             if run_bot_core(mode_choice): # Run BotCore instance directly
-                # If run_bot_core completes (e.g., exits cleanly), return to menu
-                # Otherwise, this is a blocking call.
-                pass
+                log("BotCore run loop finished.")
             else:
                 log("❌ Failed to start bot core. Returning to menu.", "ERROR")
         return # Exit main after direct start/run
@@ -163,14 +150,13 @@ def main():
             script_name = scripts[choice]
             log(f"🚀 Khởi động {script_name}...")
             try:
-                # Use subprocess.run for mode scripts, as they have their own main loops
                 subprocess.run([sys.executable, get_path(script_name)], cwd=BASE_DIR)
             except KeyboardInterrupt:
                 log("🔙 Quay lại Menu Chính...", "INFO")
             except FileNotFoundError:
-                log(f"❌ Error: Script '{script_name}' not found.", "ERROR")
+                log(f"❌ Lỗi: Không tìm thấy script '{script_name}'.", "ERROR")
             except Exception as e:
-                log(f"❌ An error occurred: {e}", "ERROR")
+                log(f"❌ Lỗi không xác định khi chạy script: {e}", "ERROR")
         elif choice == "6":
             log("🔄 Đang khởi động lại toàn bộ chương trình...", "INFO")
             os.execv(sys.executable, [sys.executable] + sys.argv)
