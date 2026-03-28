@@ -48,6 +48,12 @@ An automated Lichess chess bot optimized for Termux (Android), Linux, and Window
 
 2. **Configure Authentication (Tokens):**
    - Create a `lichess.token` file: Paste your API Token from [Lichess API Settings](https://lichess.org/account/oauth/token).
+   - **Required Scopes:**
+     - `Read preferences`
+     - `Read email address`
+     - `Read incoming challenges`
+     - `Create, accept, decline challenges`
+     - `Play games with the bot API`
    - Create an `openrouter.key` file: Paste your API Key from [OpenRouter](https://openrouter.ai/).
 
 3. **Run the Bot:**

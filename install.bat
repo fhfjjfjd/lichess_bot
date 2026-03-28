@@ -19,8 +19,9 @@ if not exist openrouter.key (
 echo.
 echo ✅ CAI DAT HOAN TAT!
 echo -------------------------------------------------------
-echo 1. Hay dan ma Lichess Token vao file 'lichess.token'
-echo 2. Hay dan ma OpenRouter Key vao file 'openrouter.key'
+echo 1. Paste your Lichess Token into 'lichess.token'
+echo    (Required scopes: preference:read, email:read, challenge:read, challenge:write, bot:play)
+echo 2. Paste your OpenRouter Key into 'openrouter.key'
 echo 3. Dam bao ban da tai Stockfish.exe va de trong PATH
 echo 4. Chay bot bang lenh: python huy.py
 echo -------------------------------------------------------
