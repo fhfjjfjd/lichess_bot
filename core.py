@@ -35,7 +35,7 @@ class BotCore:
         self.active_games = set()
         self.pending_challenge = {"id": None, "time": 0, "target": ""}
         self.running = True
-        self.last_search_time = 0 # Biến để kiểm soát thời gian tìm kiếm
+        self.last_search_time = 0
 
     def login(self):
         tf = get_path(settings["lichess"]["token_file"])
@@ -68,6 +68,7 @@ class BotCore:
                                settings["openrouter"]["max_tokens"], sp)
 
     def safe_move(self, gid, move):
+        log(f"[DEBUG] safe_move: Attempting to send move '{move}' for game '{gid}'")
         for i in range(3):
             try:
                 self.client.bots.make_move(gid, move)
@@ -75,8 +76,10 @@ class BotCore:
             except Exception as e:
                 err_msg = str(e)
                 if "Not your turn" in err_msg: return True
-                log(f"⚠️ Gửi nước {move} lỗi: {err_msg}", "ERROR")
-                if "cannot move" in err_msg or "Illegal" in err_msg: return False
+                log(f"⚠️ Gửi nước {move} lỗi (lần {i+1}): {err_msg}", "ERROR")
+                if "cannot move" in err_msg or "Illegal" in err_msg: 
+                    log(f"❌ Nước đi '{move}' bị Lichess từ chối: {err_msg}", "ERROR")
+                    return False # Stop retrying if move is illegal
                 time.sleep(1)
         return False
 
@@ -144,7 +147,11 @@ class BotCore:
                         best, score, _ = self.smart_move(moves, board, len(ml))
                         last_score, last_played_len = score, len(ml)
                         log(f"➡️ #{move_num} {format_move(board, best)} | eval: {score/100:.1f}", "GAME")
-                        self.safe_move(gid, best)
+                        if not self.safe_move(gid, best):
+                            log(f"❌ Nước đi '{best}' không hợp lệ và không thể gửi đi.", "ERROR")
+                            # Optionally break or handle this severe error
+                            # For now, just log and continue if safe_move returns False after retries
+                            pass 
 
                 elif event['type'] == 'gameState':
                     moves = event['moves']
@@ -248,7 +255,7 @@ class BotCore:
             time.sleep(1)
 
     def run(self):
-        self.login()
+        if not self.login(): return
         self.init_engine()
         threading.Thread(target=self.timeout_monitor, daemon=True).start()
         if self.auto_challenge: self.send_challenge()
