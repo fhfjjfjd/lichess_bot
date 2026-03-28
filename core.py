@@ -94,7 +94,11 @@ class BotCore:
         if gid in self.active_games: return
         self.active_games.add(gid)
         self.pending_challenge = {"id": None, "time": 0}
-        log(f"🎮 Bắt đầu ván: {gid}", "GAME")
+        
+        game_url = f"https://lichess.org/{gid}"
+        log(f"🎮 BẮT ĐẦU VÁN: {gid}", "GAME")
+        log(f"🔗 Xem trực tiếp tại: {game_url}", "GAME")
+        
         my_color = opp_name = None
         move_num = last_score = 0
         last_played_len = -1
