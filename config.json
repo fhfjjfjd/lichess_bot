@@ -1,0 +1,54 @@
+{
+    "lichess": {
+        "token_file": "lichess.token"
+    },
+    "openrouter": {
+        "key_file": "openrouter.key",
+        "model": "google/gemini-2.0-flash-001",
+        "max_tokens": 800
+    },
+    "stockfish": {
+        "think_time_ms": 3000,
+        "threads": 5,
+        "hash_mb": 300,
+        "skill_level": 20,
+        "min_think_ms": 500,
+        "max_think_ms": 8000
+    },
+    "bot": {
+        "default_mode": 1,
+        "auto_resign": true,
+        "resign_score": -10.0,
+        "resign_min_moves": 30,
+        "auto_draw": true,
+        "draw_score": 0.1,
+        "draw_min_moves": 60,
+        "ai_help_min_moves": 15,
+        "ai_help_threshold": 0.8,
+        "ai_help_losing": -1.5,
+        "chat_enabled": true,
+        "chat_greeting": "GL HF! 🤖 Stockfish 18",
+        "chat_gg": "GG! 🎉",
+        "chat_resign": "I resign. GG! 🤝",
+        "chat_draw": "Offering draw 🤝",
+        "smart_time": true
+    },
+    "challenge": {
+        "default_clock_limit": 180,
+        "default_clock_increment": 2,
+        "default_color": "random",
+        "rated": true,
+        "accept_variants": ["standard", "chess960"],
+        "min_rating": 0,
+        "max_rating": 4000,
+        "max_concurrent_games": 3
+    },
+    "training": {
+        "skill_level": 5,
+        "think_time_ms": 500
+    },
+    "arena": {
+        "delay_between_games": 3,
+        "max_games": 0
+    }
+}
