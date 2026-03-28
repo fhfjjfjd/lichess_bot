@@ -1,4 +1,4 @@
-import os, json, sys, threading, argparse
+import os, json, sys, subprocess, threading, argparse
 from logger import log
 from stats import Stats
 from engine import Engine
@@ -7,7 +7,6 @@ from core import BotCore # Import BotCore directly
 from telegram_bot import main as run_telegram_bot # Import Telegram bot entry point
 
 # --- Global variables for flags and bot instance ---
-# These will be configured by args or menu
 bot_instance = None
 client = None
 account = None
@@ -24,7 +23,8 @@ def get_path(filename):
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
 
 def load_settings():
-    return json.load(open(get_path("settings.json"), encoding="utf-8"))
+    path = get_path("settings.json")
+    return json.load(open(path, encoding="utf-8"))
 
 def reset_api_menu():
     cfg = load_settings()
@@ -68,22 +68,15 @@ def setup_telegram_config():
             json.dump(cfg, f, indent=4, ensure_ascii=False)
         log("✅ Saved Telegram configuration.", "INFO")
 
-# Function to initialize and run BotCore directly
 def run_bot_core(mode_choice):
     global bot_instance, USE_AI_MANAGEMENT, USE_AI_MOVES, AUTO_CHALLENGE
     
-    # Determine flags based on mode
     USE_AI_MANAGEMENT = mode_choice in ("1", "2", "4")
     USE_AI_MOVES = mode_choice in ("2", "4")
     AUTO_CHALLENGE = mode_choice in ("1", "2")
     
     bot_instance = BotCore(use_ai_mgmt=USE_AI_MANAGEMENT, use_ai_moves=USE_AI_MOVES, auto_challenge=AUTO_CHALLENGE)
-    
-    # Login is handled within BotCore.run() or its init. Let's ensure it's called.
-    # For direct run, BotCore.__init__ does NOT do login. run() does.
-    
-    log(f"🚀 Starting BotCore in Mode {mode_choice}...")
-    bot_instance.run() # This will block until bot exits or is interrupted
+    bot_instance.run()
 
 # --- Main execution logic ---
 def main():
@@ -99,8 +92,6 @@ def main():
 
     if args.shutdown:
         log("👋 Shutting down bot process...", "INFO")
-        # This command is intended for non-running state or forceful exit.
-        # If bot is running, Telegram /shutdown is preferred for graceful exit.
         sys.exit(0)
 
     if args.reset_api:
@@ -124,33 +115,22 @@ def main():
             script_path = get_path(mode_scripts[mode_choice])
             log(f"Launching Telegram bot script: {script_path}")
             try:
-                # Run Telegram bot script as a separate process, blocking huy.py
-                # Telegram bot runs its own polling loop.
+                # Run Telegram bot script as a separate process, blocking huy.py until it exits
                 subprocess.run([sys.executable, script_path], cwd=BASE_DIR)
             except KeyboardInterrupt:
-                log("👋 Interrupted Telegram bot. Returning to main menu.", "INFO")
+                log("Interrupted Telegram bot. Returning to main menu.", "INFO")
+                # Graceful exit from subprocess, return to menu
             except FileNotFoundError:
                 log(f"❌ Error: Script '{script_path}' not found.", "ERROR")
             except Exception as e:
                 log(f"❌ An error occurred: {e}", "ERROR")
-        else: # Modes 1-4 run BotCore directly
-            # Direct instantiation in huy.py for modes 1-4
-            # This bypasses the separate modeX.py files for direct execution logic.
-            # Flags are set based on mode_choice.
-            USE_AI_MANAGEMENT = mode_choice in ("1", "2", "4")
-            USE_AI_MOVES = mode_choice in ("2", "4")
-            AUTO_CHALLENGE = mode_choice in ("1", "2")
-            
-            log(f"Initializing BotCore in Mode {mode_choice}...")
-            bot_instance = BotCore(use_ai_mgmt=USE_AI_MANAGEMENT, use_ai_moves=USE_AI_MOVES, auto_challenge=AUTO_CHALLENGE)
-            
-            # Set callbacks if needed (e.g., for Telegram notifications if that were integrated here)
-            # For now, callbacks are set within telegram_bot.py directly.
-
-            log("Starting BotCore run loop...")
-            bot_instance.run() # This will block until bot exits or is interrupted
-            log("BotCore run loop finished.")
-
+        else: # Modes 1-4 run BotCore directly from huy.py
+            if run_bot_core(mode_choice): # Run BotCore instance directly
+                # If run_bot_core completes (e.g., exits cleanly), return to menu
+                # Otherwise, this is a blocking call.
+                pass
+            else:
+                log("❌ Failed to start bot core. Returning to menu.", "ERROR")
         return # Exit main after direct start/run
 
     # --- Fallback to Interactive Menu ---
@@ -176,15 +156,14 @@ def main():
             "2": "mode2_ai_full.py",
             "3": "mode3_only_play.py",
             "4": "mode4_ai_passive.py",
-            "5": "telegram_bot.py" # Launch telegram_bot.py
+            "5": "telegram_bot.py"
         }
         
         if choice in scripts:
             script_name = scripts[choice]
             log(f"🚀 Khởi động {script_name}...")
             try:
-                # Use subprocess.run for mode scripts (they have their own main loops)
-                # This maintains isolation.
+                # Use subprocess.run for mode scripts, as they have their own main loops
                 subprocess.run([sys.executable, get_path(script_name)], cwd=BASE_DIR)
             except KeyboardInterrupt:
                 log("🔙 Quay lại Menu Chính...", "INFO")
