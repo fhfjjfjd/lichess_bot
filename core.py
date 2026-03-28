@@ -97,7 +97,8 @@ class BotCore:
         
         game_url = f"https://lichess.org/{gid}"
         log(f"🎮 BẮT ĐẦU VÁN: {gid}", "GAME")
-        log(f"🔗 Xem trực tiếp tại: {game_url}", "GAME")
+        if cfg["bot"].get("show_game_url", True):
+            log(f"🔗 Xem trực tiếp tại: {game_url}", "GAME")
         
         my_color = opp_name = None
         move_num = last_score = 0
