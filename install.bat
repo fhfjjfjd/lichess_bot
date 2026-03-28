@@ -20,7 +20,10 @@ echo.
 echo ✅ CAI DAT HOAN TAT!
 echo -------------------------------------------------------
 echo 1. Paste your Lichess Token into 'lichess.token'
-echo    (Required scopes: preference:read, email:read, challenge:read, challenge:write, bot:play)
+echo    Required Scopes:
+echo    - Essential: preference:read, email:read, challenge:read, challenge:write, bot:play
+echo    - Extended: challenge:bulk, tournament:write, team:read, team:write, puzzle:read,
+echo                puzzle:write, racer:write, study:read, study:write, engine:read, engine:write
 echo 2. Paste your OpenRouter Key into 'openrouter.key'
 echo 3. Dam bao ban da tai Stockfish.exe va de trong PATH
 echo 4. Chay bot bang lenh: python huy.py

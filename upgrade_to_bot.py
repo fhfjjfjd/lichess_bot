@@ -27,6 +27,8 @@ def upgrade():
         print("- Tài khoản này sẽ KHÔNG THỂ chơi cờ thủ công như người bình thường.")
         print("- Bạn KHÔNG THỂ quay lại chế độ người chơi bình thường sau khi nâng cấp.")
         print("- Bạn PHẢI sử dụng bot để thi đấu.")
+        print("- ĐẢM BẢO Token của bạn có đủ các quyền: preference:read, email:read,")
+        print("  challenge:read, challenge:write, bot:play.")
         print("!" * 55)
         
         confirm = input(f"\nBạn có chắc chắn muốn nâng cấp '{username}' lên BOT không? (nhập 'CONFIRM' để đồng ý): ")
