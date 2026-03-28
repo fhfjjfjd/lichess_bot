@@ -18,9 +18,10 @@ def reset_api_menu():
     print("=" * 55)
     print("  1. ♟️  Reset Lichess Token")
     print("  2. 🤖 Reset OpenRouter Key")
-    print("  3. ⬅️  Quay lại")
+    print("  3. 📡 Reset Telegram Config")
+    print("  4. ⬅️  Quay lại")
     print("=" * 55)
-    choice = input("Chọn (1-3): ").strip()
+    choice = input("Chọn (1-4): ").strip()
     if choice == "1":
         path = get_path(cfg["lichess"]["token_file"])
         if os.path.exists(path): os.remove(path)
@@ -29,9 +30,31 @@ def reset_api_menu():
         path = get_path(cfg["openrouter"]["key_file"])
         if os.path.exists(path): os.remove(path)
         log("🗑️ Đã xóa OpenRouter Key.", "WARN")
+    elif choice == "3":
+        cfg["telegram"]["token"] = "NHẬP_TOKEN_CỦA_BẠN_TẠI_ĐÂY"
+        cfg["telegram"]["chat_id"] = "NHẬP_ID_CỦA_BẠN_TẠI_ĐÂY"
+        with open(get_path("settings.json"), "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=4, ensure_ascii=False)
+        log("🗑️ Đã reset cấu hình Telegram.", "WARN")
+
+def setup_telegram():
+    cfg = load_settings()
+    changed = False
+    if cfg["telegram"]["token"] == "NHẬP_TOKEN_CỦA_BẠN_TẠI_ĐÂY":
+        cfg["telegram"]["token"] = input("🤖 Nhập Telegram Bot Token: ").strip()
+        changed = True
+    if cfg["telegram"]["chat_id"] == "NHẬP_ID_CỦA_BẠN_TẠI_ĐÂY":
+        cfg["telegram"]["chat_id"] = input("🆔 Nhập Telegram Chat ID của bạn: ").strip()
+        changed = True
+    if changed:
+        with open(get_path("settings.json"), "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=4, ensure_ascii=False)
+        log("✅ Đã lưu cấu hình Telegram.", "INFO")
 
 def main():
+    global cfg, pending_challenge
     while True:
+        cfg = load_settings()
         print("\n" + "=" * 55)
         print("🏠 MENU CHÍNH:")
         print("=" * 55)
@@ -55,19 +78,19 @@ def main():
         }
         
         if choice in scripts:
+            if choice == "5": setup_telegram()
             script_path = get_path(scripts[choice])
             log(f"🚀 Khởi động {scripts[choice]}...")
             try:
-                # Chạy script với thư mục làm việc (cwd) là thư mục gốc của bot
                 subprocess.run([sys.executable, script_path], cwd=BASE_DIR)
             except KeyboardInterrupt:
                 log("🔙 Đã dừng bot và quay lại Menu Chính.", "INFO")
-        elif choice == "5":
+        elif choice == "6":
             log("🔄 Đang khởi động lại...", "INFO")
             os.execv(sys.executable, [sys.executable] + sys.argv)
-        elif choice == "6":
-            reset_api_menu()
         elif choice == "7":
+            reset_api_menu()
+        elif choice == "8":
             log("👋 Tạm biệt!", "INFO")
             break
 
