@@ -7,7 +7,7 @@ from board_utils import moves_to_board, get_phase, format_move, is_endgame_draw
 
 # Tải cấu hình
 def load_config():
-    return json.load(open("config.json", encoding="utf-8"))
+    return json.load(open("settings.json", encoding="utf-8"))
 
 cfg = load_config()
 

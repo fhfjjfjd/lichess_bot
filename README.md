@@ -60,7 +60,7 @@ An automated Lichess chess bot optimized for Termux (Android), Linux, and Window
    python3 huy.py
    ```
 
-## ⚙️ Performance Configuration (`config.json`)
+## ⚙️ Performance Configuration (`settings.json`)
 
 The bot is pre-configured for high-end mobile performance:
 - `threads`: 8

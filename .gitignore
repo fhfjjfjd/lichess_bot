@@ -1,7 +1,6 @@
 # Secrets
 lichess.token
 openrouter.key
-config.json
 
 # Stats & Logs
 stats.json
