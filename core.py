@@ -3,7 +3,6 @@ from logger import log
 from stats import Stats
 from engine import Engine
 from ai_manager import AIManager
-from telegram_manager import TelegramManager
 from board_utils import moves_to_board, get_phase, format_move, is_endgame_draw
 
 # Xác định thư mục gốc của dự án
@@ -36,14 +35,7 @@ class BotCore:
         self.active_games = set()
         self.pending_challenge = {"id": None, "time": 0, "target": ""}
         self.running = True
-        self.last_search_time = 0
-        
-        # Hệ thống Callback
-        self.on_game_start = None
-        self.on_game_end = None
-        
-        # Hệ thống Tự học (Self-Improvement)
-        self.boosted_time = 0 # Thời gian cộng thêm sau ván thua
+        self.last_search_time = 0 # Biến để kiểm soát thời gian tìm kiếm
 
     def login(self):
         tf = get_path(settings["lichess"]["token_file"])
@@ -89,15 +81,12 @@ class BotCore:
         return False
 
     def smart_move(self, moves, board, total_moves):
-        # Tính toán thời gian nghĩ cơ bản
         base_time = self.engine.calc_think_time(board) if self.engine.smart_time else self.engine.think_ms
-        # Cộng thêm thời gian "boost" nếu vừa thua ván trước
         actual_time = base_time + self.boosted_time
         
         self.engine._send(f"position fen {board.fen()}")
         self.engine._send(f"go movetime {actual_time}")
         
-        # ... logic lấy best move (tóm tắt từ engine.py)
         best, score, depth = self.engine.get_best_move(moves, board)
         
         if not self.use_ai_moves or not self.ai: return best, score, depth
@@ -113,20 +102,6 @@ class BotCore:
                             log(f"🤖 AI chọn: {chosen}", "AI")
                             return chosen, c['score'], c['depth']
         return best, score, depth
-
-    def learn_from_mistakes(self, moves_str, result, my_color):
-        log("🎓 Bot đang bắt đầu phiên tự học rút kinh nghiệm...", "INFO")
-        if settings["training"].get("auto_boost_on_loss") and result == "loss":
-            self.boosted_time = settings["training"].get("boost_time_ms", 2000)
-            log(f"⚡ Đã kích hoạt 'Cẩn trọng': Tăng thêm {self.boosted_time}ms suy nghĩ cho ván sau.", "INFO")
-        else:
-            self.boosted_time = 0
-
-        if self.ai:
-            analysis = self.ai.analyze_game(moves_str, result, my_color)
-            if analysis:
-                log(f"🔬 BÀI HỌC: {analysis}", "ANALYSIS")
-                self.tg.send_msg(f"🎓 *BÀI HỌC KINH NGHIỆM:*\n\n{analysis}")
 
     def play_game(self, gid):
         if gid in self.active_games: return
@@ -156,7 +131,8 @@ class BotCore:
                     
                     log(f"♟️ {my_color} vs {opp_name} | Variant: {variant}", "GAME")
                     if settings["bot"].get("show_game_url", True):
-                        log(f"🔗 {game_url}")
+                        log(f"🔗 Link: {game_url}", "GAME")
+                        log("⏳ Đợi 15s cho bạn vào xem...", "INFO")
                         time.sleep(15)
 
                     moves = event['state']['moves']
@@ -179,14 +155,13 @@ class BotCore:
                         self.stats.add_game(result, opp_name, len(moves.split()))
                         if self.on_game_end: self.on_game_end(status, result, len(moves.split()))
                         
-                        # --- HỆ THỐNG TỰ HỌC KÍCH HOẠT TẠI ĐÂY ---
-                        self.learn_from_mistakes(moves, result, my_color)
+                        if settings["bot"]["auto_learn_from_loss"] and result == "loss":
+                            threading.Thread(target=self.learn_from_mistakes, args=(moves, result, my_color)).start()
                         
                         if settings["bot"]["chat_enabled"]:
                             try: self.client.bots.post_message(gid, settings["bot"]["chat_gg"])
                             except: pass
                         break
-                    
                     ml = moves.split() if moves else []
                     my_turn = (my_color == 'white' and len(ml) % 2 == 0) or (my_color == 'black' and len(ml) % 2 == 1)
                     if not my_turn or len(ml) <= last_played_len: continue
@@ -230,22 +205,27 @@ class BotCore:
                 except: pass
                 log(f"✅ AI chấp nhận {name}", "CHALLENGE")
         else:
-            self.client.bots.accept_challenge(cid)
+            try: self.client.bots.accept_challenge(cid)
+            except: pass
             log(f"✅ Chấp nhận {name}", "CHALLENGE")
 
     def send_challenge(self):
         if not self.auto_challenge or len(self.active_games) >= settings["challenge"]["max_concurrent_games"] or self.pending_challenge["id"]: return
         self.last_search_time = time.time()
         try:
-            log("🔎 Tìm đối thủ...", "CHALLENGE")
+            log("🔎 Đang tìm đối thủ bot online...", "CHALLENGE")
             bots = list(self.client.bots.get_online_bots(limit=30))
             opps = [b for b in bots if b['username'].lower() != self.account['username'].lower()]
-            if not opps: return
+            if not opps:
+                log("⚠️ Không tìm thấy bot nào khác online. Thử lại sau...", "CHALLENGE")
+                return
             target = random.choice(opps)
             cl_limit, cl_inc = settings["challenge"]["default_clock_limit"], settings["challenge"]["default_clock_increment"]
+            log(f"🎯 Thách đấu: {target['username']}...", "CHALLENGE")
             res = self.client.challenges.create(target['id'], rated=settings["challenge"]["rated"], clock_limit=cl_limit, clock_increment=cl_inc)
             self.pending_challenge = {"id": res['challenge']['id'], "time": time.time(), "target": target['username']}
-        except: pass
+        except Exception as e:
+            log(f"⚠️ Lỗi khi gửi thách đấu: {e}", "ERROR")
 
     def timeout_monitor(self):
         last_log_time = 0
@@ -255,9 +235,10 @@ class BotCore:
                 if self.pending_challenge["id"]:
                     elapsed = int(now - self.pending_challenge["time"])
                     if elapsed % 10 == 0 and elapsed != last_log_time:
-                        log(f"⏳ Đợi {self.pending_challenge['target']}... ({40-elapsed}s)", "CHALLENGE")
+                        log(f"⏳ Đợi {self.pending_challenge['target']} nhận lời... ({40-elapsed}s còn lại)", "CHALLENGE")
                         last_log_time = elapsed
                     if elapsed >= 40:
+                        log(f"⏰ Hết 40s! Hủy thách đấu với {self.pending_challenge['target']}.", "CHALLENGE")
                         try: self.client.challenges.cancel(self.pending_challenge["id"])
                         except: pass
                         self.pending_challenge = {"id": None, "time": 0, "target": ""}
@@ -271,6 +252,7 @@ class BotCore:
         self.init_engine()
         threading.Thread(target=self.timeout_monitor, daemon=True).start()
         if self.auto_challenge: self.send_challenge()
+        log("🚀 Bot đang lắng nghe sự kiện...", "INFO")
         try:
             for event in self.client.board.stream_incoming_events():
                 if event['type'] == 'gameStart':
@@ -279,9 +261,12 @@ class BotCore:
                 elif event['type'] == 'challenge':
                     self.handle_challenge(event['challenge'])
                 elif event['type'] in ('challengeDeclined', 'challengeCanceled'):
-                    if self.pending_challenge["id"] == event.get('challenge', {}).get('id'):
+                    event_cid = event.get('challenge', {}).get('id')
+                    if self.pending_challenge["id"] == event_cid:
+                        log(f"😔 Thách đấu đã bị từ chối/hủy.", "CHALLENGE")
                         self.pending_challenge = {"id": None, "time": 0, "target": ""}
                         if self.auto_challenge: threading.Thread(target=self.send_challenge).start()
         except KeyboardInterrupt:
             self.running = False
+            log("👋 Dừng bot...", "INFO")
             if self.engine: self.engine.quit()
