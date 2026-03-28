@@ -1,0 +1,22 @@
+# Secrets
+lichess.token
+openrouter.key
+config.json
+
+# Stats & Logs
+stats.json
+bot.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+
+# OS
+.DS_Store
+.idea/
+.vscode/
