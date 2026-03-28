@@ -1,6 +1,6 @@
 # ♟️ Lichess Bot - Stockfish 18 + Gemini AI
 
-Một bot chơi cờ vua tự động trên Lichess được tối ưu hóa cho môi trường Termux (Android), tích hợp công cụ mạnh nhất thế giới **Stockfish 18** và trí tuệ nhân tạo **Gemini AI** (thông qua OpenRouter) để đưa ra các quyết định thông minh và giao tiếp với đối thủ.
+Một bot chơi cờ vua tự động trên Lichess được tối ưu hóa cho môi trường Termux (Android), Linux và Windows. Tích hợp công cụ mạnh nhất thế giới **Stockfish 18** và trí tuệ nhân tạo **Gemini AI** (thông qua OpenRouter) để đưa ra các quyết định thông minh và giao tiếp với đối thủ.
 
 ## 🌟 Tính năng nổi bật
 
@@ -17,22 +17,37 @@ Một bot chơi cờ vua tự động trên Lichess được tối ưu hóa cho 
 
 ## 🛠️ Yêu cầu hệ thống
 
-- **Hệ điều hành:** Android (Termux) hoặc Linux.
+- **Hệ điều hành:** Android (Termux), Linux hoặc Windows.
 - **Ngôn ngữ:** Python 3.10+.
-- **Thư viện:** `berserk`, `python-chess`, `openai==0.28.1`, `requests`.
-- **Engine:** `stockfish` (Cài đặt qua `pkg install stockfish`).
+- **Engine:** `stockfish` (Sẵn có trên các kho ứng dụng hoặc trang chủ Stockfish).
 
 ## 🚀 Cài đặt nhanh
 
+### Cách 1: Sử dụng Script cài đặt tự động (Khuyên dùng)
+
+1. **Trên Termux / Linux:**
+   ```bash
+   git clone https://github.com/fhfjjfjd/lichess_bot
+   cd lichess_bot
+   bash install.sh
+   ```
+
+2. **Trên Windows:**
+   - Tải dự án về máy.
+   - Chạy file `install.bat` bằng cách nháy đúp chuột.
+
+---
+
+### Cách 2: Cài đặt thủ công
+
 1. **Cài đặt các gói cần thiết:**
    ```bash
-   pkg update && pkg upgrade
    pkg install python git stockfish -y
    pip install berserk python-chess openai==0.28.1 requests
    ```
 
 2. **Cấu hình mã xác thực (Tokens):**
-   - Tạo file `lichess.token`: Dán mã API Token từ [Lichess API Settings](https://lichess.org/account/oauth/token) (Cần quyền: `Read preferences`, `Read email address`, `Play games with the bot API`, `Read incoming challenges`).
+   - Tạo file `lichess.token`: Dán mã API Token từ [Lichess API Settings](https://lichess.org/account/oauth/token).
    - Tạo file `openrouter.key`: Dán mã API Key từ [OpenRouter](https://openrouter.ai/).
 
 3. **Chạy Bot:**
