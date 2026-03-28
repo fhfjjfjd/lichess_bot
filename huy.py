@@ -4,7 +4,6 @@ from stats import Stats
 from engine import Engine
 from ai_manager import AIManager
 from core import BotCore # Import BotCore directly
-# from telegram_bot import main as run_telegram_bot # No longer needed for direct mode execution
 
 # --- Global variables for flags and bot instance ---
 bot_instance = None
@@ -16,7 +15,7 @@ ai = None
 USE_AI_MANAGEMENT = False
 USE_AI_MOVES = False
 AUTO_CHALLENGE = False
-selected_mode_for_direct_run = None
+selected_mode_for_direct_run = None # Will store '1' through '5'
 
 # --- Helper Functions ---
 def get_path(filename):
@@ -25,25 +24,6 @@ def get_path(filename):
 def load_settings():
     path = get_path("settings.json")
     return json.load(open(path, encoding="utf-8"))
-
-# --- Menu Logic ---
-def display_main_menu():
-    cfg = load_settings()
-    print("
-" + "=" * 55)
-    print("🏠 MAIN MENU:")
-    print("=" * 55)
-    print("  1. 🤖 SMART AUTO   (Mode 1)")
-    print("  2. 🧠 AI FULL      (Mode 2)")
-    print("  3. ♟️  ONLY PLAY    (Mode 3)")
-    print("  4. 🧠 AI PASSIVE   (Mode 4)")
-    print("  5. 📡 TELEGRAM CONTROL (Mode 5)")
-    print("  6. 🔄 Khởi động lại Bot")
-    print("  7. 🔑 Reset / Cài đặt API")
-    print("  8. ❌ Thoát")
-    print("=" * 55)
-    choice = input("Chọn (1-8): ").strip()
-    return choice
 
 def reset_api_menu():
     cfg = load_settings()
@@ -133,10 +113,11 @@ def main():
             script_path = get_path(mode_scripts[mode_choice])
             log(f"Launching Telegram bot script: {script_path}")
             try:
-                # Run Telegram bot script as a separate process, blocking huy.py until it exits
-                subprocess.run([sys.executable, script_path], cwd=BASE_DIR)
+                proc = subprocess.Popen([sys.executable, script_path], cwd=BASE_DIR)
+                proc.wait() # Wait for the telegram bot process to finish
             except KeyboardInterrupt:
                 log("Interrupted Telegram bot. Returning to main menu.", "INFO")
+                if proc: proc.terminate() # Ensure subprocess is terminated
             except FileNotFoundError:
                 log(f"❌ Error: Script '{script_path}' not found.", "ERROR")
             except Exception as e:
@@ -177,25 +158,26 @@ def main():
         if choice in scripts:
             script_name = scripts[choice]
             log(f"🚀 Khởi động {script_name}...")
-    
-            if script_name == "telegram_bot.py": # Handle Telegram mode separately
-                try:
-                    subprocess.run([sys.executable, get_path(script_name)], cwd=BASE_DIR)
-                except KeyboardInterrupt:
-                    log("Interrupted Telegram bot. Returning to main menu.", "INFO")
-                except FileNotFoundError:
-                    log(f"❌ Error: Script '{script_name}' not found.", "ERROR")
-                except Exception as e:
-                    log(f"❌ An error occurred: {e}", "ERROR")
-            else: # Modes 1-4 are launched via their respective files
-                try:
-                    subprocess.run([sys.executable, get_path(script_name)], cwd=BASE_DIR)
-                except KeyboardInterrupt:
-                    log("🔙 Quay lại Menu Chính...", "INFO")
-                except FileNotFoundError:
-                    log(f"❌ Lỗi: Không tìm thấy script '{script_name}'.", "ERROR")
-                except Exception as e:
-                    log(f"❌ Lỗi không xác định khi chạy script: {e}", "ERROR")
+            try:
+                # Use Popen for modes 1-4 to allow main menu to regain control
+                # Use subprocess.run for telegram_bot.py as it's a separate blocking process
+                if script_name == "telegram_bot.py":
+                    proc = subprocess.Popen([sys.executable, get_path(script_name)], cwd=BASE_DIR)
+                    proc.wait() # Wait for telegram bot to finish
+                else: # Modes 1-4
+                    # Use Popen for these too, so that huy.py can be interrupted and return to menu
+                    proc = subprocess.Popen([sys.executable, get_path(script_name)], cwd=BASE_DIR)
+                    proc.wait() # Wait for mode script to finish
+            except KeyboardInterrupt:
+                log("🔙 Quay lại Menu Chính...", "INFO")
+                if proc: # If subprocess was started, terminate it
+                    proc.terminate()
+                    proc.wait()
+            except FileNotFoundError:
+                log(f"❌ Lỗi: Không tìm thấy script '{script_name}'.", "ERROR")
+            except Exception as e:
+                log(f"❌ Lỗi không xác định khi chạy script: {e}", "ERROR")
+                if proc: proc.terminate() # Ensure termination on error
         elif choice == "6":
             log("🔄 Đang khởi động lại toàn bộ chương trình...", "INFO")
             os.execv(sys.executable, [sys.executable] + sys.argv)
