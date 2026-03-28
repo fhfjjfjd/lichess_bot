@@ -61,7 +61,26 @@ engine = Engine(
 stats = Stats()
 ai = None
 if USE_AI:
-    sp = f'Bạn là AI quản lý bot cờ vua "{account["username"]}". Trả lời ĐÚNG format, không thừa.'
+    # System Prompt chi tiết về 15 quyền hạn của AI
+    sp = f"""Bạn là bộ não AI quản lý bot cờ vua "{account["username"]}" trên Lichess.
+Năng lực và Quyền hạn của bạn (Scopes):
+1.  Đọc thiết lập cá nhân & Email (preference:read, email:read).
+2.  Quản lý thách đấu (challenge:read, challenge:write): Đọc, Gửi, Chấp nhận, Từ chối.
+3.  Thách đấu hàng loạt (challenge:bulk): Tạo nhiều ván đấu cùng lúc.
+4.  Thi đấu (bot:play): Trực tiếp chơi cờ thông qua Bot API.
+5.  Quản lý Giải đấu (tournament:write): Tạo, cập nhật và tham gia giải đấu.
+6.  Quản lý Đội (team:read, team:write): Đọc tin nhắn đội, Tham gia/Rời khỏi đội.
+7.  Giải đố (puzzle:read, puzzle:write): Đọc và giải các câu đố cờ vua.
+8.  Đua câu đố (racer:write): Tạo và tham gia các cuộc đua câu đố.
+9.  Học tập & Phát sóng (study:read, study:write): Quản lý các bài học và chương trình phát sóng.
+10. Engine bên ngoài (engine:read, engine:write): Xem và quản lý các động cơ máy tính bên ngoài.
+
+NGUYÊN TẮC: 
+- Chỉ thực hiện hành động khi có yêu cầu cụ thể từ hệ thống hoặc đối thủ.
+- KHÔNG tự ý gọi lệnh hoặc thực hiện hành động khi không có bối cảnh phù hợp.
+- Trả lời ĐÚNG format yêu cầu, không thừa thãi.
+- Luôn giữ thái độ chuyên nghiệp của một Đại kiện tướng.
+"""
     ai = AIManager(cfg["openrouter"]["key_file"], cfg["openrouter"]["model"],
                    cfg["openrouter"]["max_tokens"], sp)
 
@@ -75,9 +94,7 @@ def safe_move(gid, move):
             client.bots.make_move(gid, move)
             return True
         except Exception as e:
-            # Nếu lỗi là "Không phải lượt của bạn", tức là nước đi đã được gửi rồi
-            if "Not your turn" in str(e):
-                return True
+            if "Not your turn" in str(e): return True
             log(f"⚠️ Gửi nước lỗi (lần {i+1}): {e}", "ERROR")
             time.sleep(1)
     return False
@@ -126,7 +143,7 @@ def play_game(gid):
     my_color = opp_name = None
     move_num = 0
     last_score = 0
-    last_played_len = -1 # Tránh đánh 2 lần cùng 1 lượt
+    last_played_len = -1
     initial_fen = None
     variant = "standard"
 
@@ -144,7 +161,6 @@ def play_game(gid):
                 log(f"♟️ {my_color} vs {opp_name} ({opp.get('rating', '?')}) | Variant: {variant}", "GAME")
                 moves = event['state']['moves']
                 ml = moves.split() if moves else []
-                
                 my_turn = (my_color == 'white' and len(ml) % 2 == 0) or \
                           (my_color == 'black' and len(ml) % 2 == 1)
                 
@@ -174,13 +190,9 @@ def play_game(gid):
                 ml = moves.split() if moves else []
                 my_turn = (my_color == 'white' and len(ml) % 2 == 0) or \
                           (my_color == 'black' and len(ml) % 2 == 1)
-                
-                if not my_turn or len(ml) <= last_played_len:
-                    continue
+                if not my_turn or len(ml) <= last_played_len: continue
 
                 board = moves_to_board(moves, initial_fen, variant)
-                
-                # Auto resign
                 if cfg["bot"]["auto_resign"] and last_score < cfg["bot"]["resign_score"] * 100 \
                    and len(ml) >= cfg["bot"]["resign_min_moves"]:
                     log(f"🏳️ Resign (eval: {last_score/100:.1f})", "GAME")
@@ -189,7 +201,6 @@ def play_game(gid):
                     except: pass
                     break
 
-                # Auto draw
                 if cfg["bot"]["auto_draw"] and is_endgame_draw(board) and len(ml) >= cfg["bot"]["draw_min_moves"]:
                     try: client.bots.offer_draw(gid)
                     except: pass
@@ -205,8 +216,7 @@ def play_game(gid):
         log(f"❌ Lỗi ván {gid}: {e}", "ERROR")
     finally:
         active_games.discard(gid)
-        if AUTO_CHALLENGE:
-            threading.Thread(target=send_challenge).start()
+        if AUTO_CHALLENGE: threading.Thread(target=send_challenge).start()
 
 # ==================== THÁCH ĐẤU ====================
 def handle_challenge(ch):
