@@ -1,5 +1,9 @@
-import os, json, sys, subprocess
+import os, json, sys, subprocess, threading
 from logger import log
+from stats import Stats
+from engine import Engine
+from ai_manager import AIManager
+from board_utils import moves_to_board, get_phase, format_move, is_endgame_draw
 
 # Xác định thư mục gốc của dự án
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -13,7 +17,8 @@ def load_settings():
 
 def reset_api_menu():
     cfg = load_settings()
-    print("\n" + "=" * 55)
+    print("
+" + "=" * 55)
     print("🔑 RESET / CÀI ĐẶT API:")
     print("=" * 55)
     print("  1. ♟️  Reset Lichess Token")
@@ -28,7 +33,7 @@ def reset_api_menu():
         log("🗑️ Đã xóa token Lichess.", "WARN")
     elif choice == "2":
         path = get_path(cfg["openrouter"]["key_file"])
-        if os.path.exists(path): os.remove(path)
+        if osa.path.exists(path): os.remove(path)
         log("🗑️ Đã xóa OpenRouter Key.", "WARN")
     elif choice == "3":
         cfg["telegram"]["token"] = "NHẬP_TOKEN_CỦA_BẠN_TẠI_ĐÂY"
@@ -55,7 +60,8 @@ def main():
     global cfg, pending_challenge
     while True:
         cfg = load_settings()
-        print("\n" + "=" * 55)
+        print("
+" + "=" * 55)
         print("🏠 MENU CHÍNH:")
         print("=" * 55)
         print("  1. 🤖 SMART AUTO   (Mode 1)")
@@ -74,19 +80,31 @@ def main():
             "2": "mode2_ai_full.py",
             "3": "mode3_only_play.py",
             "4": "mode4_ai_passive.py",
-            "5": "mode5_telegram_control.py"
+            "5": "telegram_bot.py"
         }
         
+        proc = None # Biến để lưu trữ tiến trình con
         if choice in scripts:
-            if choice == "5": setup_telegram()
             script_path = get_path(scripts[choice])
             log(f"🚀 Khởi động {scripts[choice]}...")
             try:
-                subprocess.run([sys.executable, script_path], cwd=BASE_DIR)
+                # Sử dụng Popen để chạy script con và có thể quản lý nó
+                proc = subprocess.Popen([sys.executable, script_path], cwd=BASE_DIR)
+                proc.wait() # Đợi cho script con kết thúc
             except KeyboardInterrupt:
-                log("🔙 Đã dừng bot và quay lại Menu Chính.", "INFO")
+                log("🔙 Quay lại Menu Chính...", "INFO")
+                if proc: # Nếu có tiến trình con đang chạy
+                    proc.terminate() # Gửi tín hiệu Terminate
+                    proc.wait() # Chờ nó kết thúc
+            except FileNotFoundError:
+                log(f"❌ Lỗi: Không tìm thấy script '{script_path}'. Hãy kiểm tra lại.", "ERROR")
+            except Exception as e:
+                log(f"❌ Lỗi không xác định khi chạy script: {e}", "ERROR")
+                if proc: # Đảm bảo tiến trình con bị đóng nếu có lỗi
+                    proc.terminate()
+                    proc.wait()
         elif choice == "6":
-            log("🔄 Đang khởi động lại...", "INFO")
+            log("🔄 Đang khởi động lại toàn bộ chương trình...", "INFO")
             os.execv(sys.executable, [sys.executable] + sys.argv)
         elif choice == "7":
             reset_api_menu()
