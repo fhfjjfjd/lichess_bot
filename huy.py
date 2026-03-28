@@ -39,17 +39,19 @@ def main():
         print("  2. 🧠 AI FULL      (Mode 2)")
         print("  3. ♟️  ONLY PLAY    (Mode 3)")
         print("  4. 🧠 AI PASSIVE   (Mode 4)")
-        print("  5. 🔄 Khởi động lại Bot")
-        print("  6. 🔑 Reset / Cài đặt API")
-        print("  7. ❌ Thoát")
+        print("  5. 📡 TELEGRAM CONTROL (New!)")
+        print("  6. 🔄 Khởi động lại Bot")
+        print("  7. 🔑 Reset / Cài đặt API")
+        print("  8. ❌ Thoát")
         print("=" * 55)
-        choice = input("Chọn (1-7): ").strip()
+        choice = input("Chọn (1-8): ").strip()
         
         scripts = {
             "1": "mode1_smart_auto.py",
             "2": "mode2_ai_full.py",
             "3": "mode3_only_play.py",
-            "4": "mode4_ai_passive.py"
+            "4": "mode4_ai_passive.py",
+            "5": "mode5_telegram_control.py"
         }
         
         if choice in scripts:

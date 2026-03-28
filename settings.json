@@ -52,5 +52,10 @@
     "arena": {
         "delay_between_games": 3,
         "max_games": 0
+    },
+    "telegram": {
+        "enabled": true,
+        "token": "NHẬP_TOKEN_CỦA_BẠN_TẠI_ĐÂY",
+        "chat_id": "NHẬP_ID_CỦA_BẠN_TẠI_ĐÂY"
     }
 }
