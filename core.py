@@ -31,7 +31,8 @@ class BotCore:
         self.ai = None
         
         self.active_games = set()
-        self.pending_challenge = {"id": None, "time": 0}
+        self.pending_challenge = {"id": None, "time": 0, "target": ""}
+        self.running = True
 
     def login(self):
         tf = get_path(settings["lichess"]["token_file"])
@@ -73,16 +74,18 @@ class BotCore:
                 err_msg = str(e)
                 if "Not your turn" in err_msg: return True
                 log(f"⚠️ Gửi nước {move} lỗi: {err_msg}", "ERROR")
-                # Nếu lỗi do nước đi không hợp lệ, không thử lại nữa
-                if "cannot move" in err_msg or "Illegal" in err_msg:
-                    return False
+                if "cannot move" in err_msg or "Illegal" in err_msg: return False
                 time.sleep(1)
         return False
+
+    def chat(self, gid, msg):
+        if settings["bot"]["chat_enabled"]:
+            try: self.client.bots.post_message(gid, msg)
+            except: pass
 
     def smart_move(self, moves, board, total_moves):
         best, score, depth = self.engine.get_best_move(moves, board)
         if not self.use_ai_moves or not self.ai: return best, score, depth
-        
         th, lo, mn = settings["bot"]["ai_help_threshold"]*100, settings["bot"]["ai_help_losing"]*100, settings["bot"]["ai_help_min_moves"]
         if total_moves >= mn and (abs(score) < th or score < lo):
             log(f"🆘 Thế cờ khó (eval={score/100:.1f}), hỏi AI...", "AI")
@@ -99,7 +102,7 @@ class BotCore:
     def play_game(self, gid):
         if gid in self.active_games: return
         self.active_games.add(gid)
-        self.pending_challenge = {"id": None, "time": 0}
+        self.pending_challenge = {"id": None, "time": 0, "target": ""}
         
         game_url = f"https://lichess.org/{gid}"
         log(f"🎮 BẮT ĐẦU VÁN: {gid}", "GAME")
@@ -149,7 +152,6 @@ class BotCore:
                     my_turn = (my_color == 'white' and len(ml) % 2 == 0) or (my_color == 'black' and len(ml) % 2 == 1)
                     if not my_turn or len(ml) <= last_played_len: continue
                     board = moves_to_board(moves, initial_fen, variant)
-                    
                     if settings["bot"]["auto_resign"] and last_score < settings["bot"]["resign_score"] * 100 and len(ml) >= settings["bot"]["resign_min_moves"]:
                         log(f"🏳️ Resign (eval: {last_score/100:.1f})", "GAME")
                         if settings["bot"]["chat_enabled"]:
@@ -158,7 +160,6 @@ class BotCore:
                         try: self.client.bots.resign_game(gid)
                         except: pass
                         break
-                    
                     move_num += 1
                     best, score, _ = self.smart_move(moves, board, len(ml))
                     last_score, last_played_len = score, len(ml)
@@ -202,12 +203,42 @@ class BotCore:
             cl_limit, cl_inc = settings["challenge"]["default_clock_limit"], settings["challenge"]["default_clock_increment"]
             log(f"🎯 Thách đấu: {target['username']}...", "CHALLENGE")
             res = self.client.challenges.create(target['id'], rated=settings["challenge"]["rated"], clock_limit=cl_limit, clock_increment=cl_inc)
-            self.pending_challenge = {"id": res['challenge']['id'], "time": time.time()}
+            self.pending_challenge = {"id": res['challenge']['id'], "time": time.time(), "target": target['username']}
         except: pass
+
+    # Luồng giám sát Timeout riêng biệt
+    def timeout_monitor(self):
+        log("🕵️ Khởi động trình giám sát Timeout...", "INFO")
+        last_log_time = 0
+        while self.running:
+            if self.auto_challenge and self.pending_challenge["id"]:
+                elapsed = int(time.time() - self.pending_challenge["time"])
+                remaining = 40 - elapsed
+                
+                # Log mỗi 10 giây hoặc khi hết giờ
+                if elapsed % 10 == 0 and elapsed != last_log_time:
+                    log(f"⏳ Đợi {self.pending_challenge['target']}... ({remaining}s còn lại)", "CHALLENGE")
+                    last_log_time = elapsed
+                
+                if elapsed >= 40:
+                    log(f"⏰ Hết 40s! Hủy thách đấu với {self.pending_challenge['target']}.", "CHALLENGE")
+                    try:
+                        self.client.challenges.cancel(self.pending_challenge["id"])
+                    except:
+                        pass
+                    self.pending_challenge = {"id": None, "time": 0, "target": ""}
+                    threading.Thread(target=self.send_challenge).start()
+            
+            time.sleep(1)
 
     def run(self):
         self.login()
         self.init_engine()
+        
+        # Bắt đầu luồng monitor
+        monitor_thread = threading.Thread(target=self.timeout_monitor, daemon=True)
+        monitor_thread.start()
+        
         if self.auto_challenge: threading.Thread(target=self.send_challenge).start()
         log("🚀 Bot đang lắng nghe sự kiện...", "INFO")
         try:
@@ -219,16 +250,10 @@ class BotCore:
                     self.handle_challenge(event['challenge'])
                 elif event['type'] in ('challengeDeclined', 'challengeCanceled'):
                     if self.pending_challenge["id"] == event.get('challenge', {}).get('id'):
-                        self.pending_challenge = {"id": None, "time": 0}
+                        log(f"😔 Đối thủ đã từ chối hoặc hủy.", "CHALLENGE")
+                        self.pending_challenge = {"id": None, "time": 0, "target": ""}
                         if self.auto_challenge: threading.Thread(target=self.send_challenge).start()
-                
-                if self.auto_challenge and self.pending_challenge["id"]:
-                    if time.time() - self.pending_challenge["time"] > 40:
-                        log(f"⏰ Hủy thách đấu treo {self.pending_challenge['id']}", "CHALLENGE")
-                        try: self.client.challenges.cancel(self.pending_challenge["id"])
-                        except: pass
-                        self.pending_challenge = {"id": None, "time": 0}
-                        threading.Thread(target=self.send_challenge).start()
         except KeyboardInterrupt:
+            self.running = False
             log("👋 Dừng bot...", "INFO")
             if self.engine: self.engine.quit()
