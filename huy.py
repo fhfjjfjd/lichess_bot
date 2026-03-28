@@ -107,7 +107,7 @@ def safe_move(gid, move):
             return True
         except Exception as e:
             if "Not your turn" in str(e): return True
-            log(f"⚠️ Gửi nước lỗi (lần {i+1}): {e}", "ERROR")
+            log(f"⚠️ Gửi nước {move} lỗi (lần {i+1}): {e}", "ERROR")
             time.sleep(1)
     return False
 

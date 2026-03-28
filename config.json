@@ -9,8 +9,8 @@
     },
     "stockfish": {
         "think_time_ms": 3000,
-        "threads": 5,
-        "hash_mb": 300,
+        "threads": 8,
+        "hash_mb": 400,
         "skill_level": 20,
         "min_think_ms": 500,
         "max_think_ms": 8000
