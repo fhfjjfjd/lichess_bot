@@ -40,22 +40,27 @@
         "default_clock_increment": 2,
         "default_color": "random",
         "rated": true,
-        "accept_variants": ["standard", "chess960"],
+        "accept_variants": [
+            "standard",
+            "chess960"
+        ],
         "min_rating": 0,
         "max_rating": 4000,
         "max_concurrent_games": 3
     },
     "training": {
-        "skill_level": 5,
-        "think_time_ms": 500
+        "enabled": true,
+        "max_analysis_time_ms": 10000,
+        "auto_boost_on_loss": true,
+        "boost_time_ms": 2000
     },
-    "arena": {
+    "telegram": {
         "delay_between_games": 3,
         "max_games": 0
     },
     "telegram": {
         "enabled": true,
-        "token": "NHẬP_TOKEN_CỦA_BẠN_TẠI_ĐÂY",
-        "chat_id": "NHẬP_ID_CỦA_BẠN_TẠI_ĐÂY"
+        "token": "8667797356:AAGebAgdee8-_xYdO0xZ8K02_qg64expI_4",
+        "chat_id": "6890643705"
     }
 }
