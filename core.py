@@ -5,11 +5,18 @@ from engine import Engine
 from ai_manager import AIManager
 from board_utils import moves_to_board, get_phase, format_move, is_endgame_draw
 
-# Tải cấu hình
-def load_config():
-    return json.load(open("settings.json", encoding="utf-8"))
+# Xác định thư mục gốc của dự án
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-cfg = load_config()
+def get_path(filename):
+    return os.path.join(BASE_DIR, filename)
+
+# Tải cài đặt
+def load_settings():
+    path = get_path("settings.json")
+    return json.load(open(path, encoding="utf-8"))
+
+settings = load_settings()
 
 class BotCore:
     def __init__(self, use_ai_mgmt=False, use_ai_moves=False, auto_challenge=False):
@@ -27,7 +34,7 @@ class BotCore:
         self.pending_challenge = {"id": None, "time": 0}
 
     def login(self):
-        tf = cfg["lichess"]["token_file"]
+        tf = get_path(settings["lichess"]["token_file"])
         while True:
             if os.path.exists(tf):
                 with open(tf) as f: token = f.read().strip()
@@ -47,15 +54,15 @@ class BotCore:
 
     def init_engine(self):
         self.engine = Engine(
-            threads=cfg["stockfish"]["threads"], hash_mb=cfg["stockfish"]["hash_mb"],
-            skill=cfg["stockfish"]["skill_level"], think_ms=cfg["stockfish"]["think_time_ms"],
-            min_think=cfg["stockfish"]["min_think_ms"], max_think=cfg["stockfish"]["max_think_ms"],
-            smart_time=cfg["bot"]["smart_time"]
+            threads=settings["stockfish"]["threads"], hash_mb=settings["stockfish"]["hash_mb"],
+            skill=settings["stockfish"]["skill_level"], think_ms=settings["stockfish"]["think_time_ms"],
+            min_think=settings["stockfish"]["min_think_ms"], max_think=settings["stockfish"]["max_think_ms"],
+            smart_time=settings["bot"]["smart_time"]
         )
         if self.use_ai_mgmt:
-            sp = f"Bạn là AI quản lý bot '{self.account['username']}' trên Lichess. Tiếng Việt chuyên nghiệp."
-            self.ai = AIManager(cfg["openrouter"]["key_file"], cfg["openrouter"]["model"],
-                               cfg["openrouter"]["max_tokens"], sp)
+            sp = f"Bạn là AI quản lý bot '{self.account['username']}' trên Lichess. Tiếng Việt."
+            self.ai = AIManager(get_path(settings["openrouter"]["key_file"]), settings["openrouter"]["model"],
+                               settings["openrouter"]["max_tokens"], sp)
 
     def safe_move(self, gid, move):
         for i in range(3):
@@ -63,21 +70,20 @@ class BotCore:
                 self.client.bots.make_move(gid, move)
                 return True
             except Exception as e:
-                if "Not your turn" in str(e): return True
-                log(f"⚠️ Gửi nước {move} lỗi: {e}", "ERROR")
+                err_msg = str(e)
+                if "Not your turn" in err_msg: return True
+                log(f"⚠️ Gửi nước {move} lỗi: {err_msg}", "ERROR")
+                # Nếu lỗi do nước đi không hợp lệ, không thử lại nữa
+                if "cannot move" in err_msg or "Illegal" in err_msg:
+                    return False
                 time.sleep(1)
         return False
-
-    def chat(self, gid, msg):
-        if cfg["bot"]["chat_enabled"]:
-            try: self.client.bots.post_message(gid, msg)
-            except: pass
 
     def smart_move(self, moves, board, total_moves):
         best, score, depth = self.engine.get_best_move(moves, board)
         if not self.use_ai_moves or not self.ai: return best, score, depth
         
-        th, lo, mn = cfg["bot"]["ai_help_threshold"]*100, cfg["bot"]["ai_help_losing"]*100, cfg["bot"]["ai_help_min_moves"]
+        th, lo, mn = settings["bot"]["ai_help_threshold"]*100, settings["bot"]["ai_help_losing"]*100, settings["bot"]["ai_help_min_moves"]
         if total_moves >= mn and (abs(score) < th or score < lo):
             log(f"🆘 Thế cờ khó (eval={score/100:.1f}), hỏi AI...", "AI")
             cands = self.engine.get_top_moves(moves, 3)
@@ -97,9 +103,9 @@ class BotCore:
         
         game_url = f"https://lichess.org/{gid}"
         log(f"🎮 BẮT ĐẦU VÁN: {gid}", "GAME")
-        if cfg["bot"].get("show_game_url", True):
+        if settings["bot"].get("show_game_url", True):
             log(f"🔗 Xem trực tiếp tại: {game_url}", "GAME")
-        
+            
         my_color = opp_name = None
         move_num = last_score = 0
         last_played_len = -1
@@ -107,7 +113,10 @@ class BotCore:
         variant = "standard"
 
         try:
-            self.chat(gid, cfg["bot"]["chat_greeting"])
+            if settings["bot"]["chat_enabled"]:
+                try: self.client.bots.post_message(gid, settings["bot"]["chat_greeting"])
+                except: pass
+                
             for event in self.client.bots.stream_game_state(gid):
                 if event['type'] == 'gameFull':
                     white = event['white']
@@ -115,7 +124,7 @@ class BotCore:
                     opp = event['black'] if my_color == 'white' else event['white']
                     opp_name = opp.get('name', opp.get('id', '???'))
                     initial_fen, variant = event.get('initialFen'), event.get('variant', {}).get('key', 'standard')
-                    log(f"♟️ {my_color} vs {opp_name} ({opp.get('rating', '?')})", "GAME")
+                    log(f"♟️ {my_color} vs {opp_name} ({opp.get('rating', '?')}) | Variant: {variant}", "GAME")
                     moves = event['state']['moves']
                     ml = moves.split() if moves else []
                     my_turn = (my_color == 'white' and len(ml) % 2 == 0) or (my_color == 'black' and len(ml) % 2 == 1)
@@ -131,23 +140,25 @@ class BotCore:
                     moves = event['moves']
                     status = event.get('status', 'started')
                     if status != 'started':
-                        self.stats.add_game("win" if event.get('winner') == my_color else "loss", opp_name, len(moves.split()))
-                        log(f"🏁 {status} ({len(moves.split())} nước)", "GAME")
-                        self.chat(gid, cfg["bot"]["chat_gg"])
-                        if self.use_ai_mgmt and self.ai:
-                            analysis = self.ai.analyze_game(moves, "win" if event.get('winner') == my_color else "loss", my_color)
-                            if analysis: log(f"🔬 {analysis}", "ANALYSIS")
+                        log(f"🏁 Kết thúc: {status} ({len(moves.split())} nước)", "GAME")
+                        if settings["bot"]["chat_enabled"]:
+                            try: self.client.bots.post_message(gid, settings["bot"]["chat_gg"])
+                            except: pass
                         break
                     ml = moves.split() if moves else []
                     my_turn = (my_color == 'white' and len(ml) % 2 == 0) or (my_color == 'black' and len(ml) % 2 == 1)
                     if not my_turn or len(ml) <= last_played_len: continue
                     board = moves_to_board(moves, initial_fen, variant)
-                    if cfg["bot"]["auto_resign"] and last_score < cfg["bot"]["resign_score"] * 100 and len(ml) >= cfg["bot"]["resign_min_moves"]:
+                    
+                    if settings["bot"]["auto_resign"] and last_score < settings["bot"]["resign_score"] * 100 and len(ml) >= settings["bot"]["resign_min_moves"]:
                         log(f"🏳️ Resign (eval: {last_score/100:.1f})", "GAME")
-                        self.chat(gid, cfg["bot"]["chat_resign"])
+                        if settings["bot"]["chat_enabled"]:
+                            try: self.client.bots.post_message(gid, settings["bot"]["chat_resign"])
+                            except: pass
                         try: self.client.bots.resign_game(gid)
                         except: pass
                         break
+                    
                     move_num += 1
                     best, score, _ = self.smart_move(moves, board, len(ml))
                     last_score, last_played_len = score, len(ml)
@@ -163,7 +174,7 @@ class BotCore:
         rating, variant = ch.get('challenger', {}).get('rating', 0), ch.get('variant', {}).get('key', 'standard')
         speed = ch.get('speed', '?')
         log(f"📩 Thách đấu: {name} ({rating}) {variant} {speed}", "CHALLENGE")
-        if len(self.active_games) >= cfg["challenge"]["max_concurrent_games"]:
+        if len(self.active_games) >= settings["challenge"]["max_concurrent_games"]:
             try: self.client.bots.decline_challenge(cid)
             except: pass
             return
@@ -182,15 +193,15 @@ class BotCore:
             log(f"✅ Chấp nhận {name}", "CHALLENGE")
 
     def send_challenge(self):
-        if not self.auto_challenge or len(self.active_games) >= cfg["challenge"]["max_concurrent_games"] or self.pending_challenge["id"]: return
+        if not self.auto_challenge or len(self.active_games) >= settings["challenge"]["max_concurrent_games"] or self.pending_challenge["id"]: return
         try:
             bots = list(self.client.bots.get_online_bots(limit=30))
             opps = [b for b in bots if b['id'] != self.account['id']]
             if not opps: return
             target = random.choice(opps)
-            cl_limit, cl_inc = cfg["challenge"]["default_clock_limit"], cfg["challenge"]["default_clock_increment"]
+            cl_limit, cl_inc = settings["challenge"]["default_clock_limit"], settings["challenge"]["default_clock_increment"]
             log(f"🎯 Thách đấu: {target['username']}...", "CHALLENGE")
-            res = self.client.challenges.create(target['id'], rated=cfg["challenge"]["rated"], clock_limit=cl_limit, clock_increment=cl_inc)
+            res = self.client.challenges.create(target['id'], rated=settings["challenge"]["rated"], clock_limit=cl_limit, clock_increment=cl_inc)
             self.pending_challenge = {"id": res['challenge']['id'], "time": time.time()}
         except: pass
 

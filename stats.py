@@ -2,7 +2,9 @@ import json
 import os
 from logger import log
 
-STATS_FILE = "stats.json"
+# Xác định thư mục gốc của dự án
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATS_FILE = os.path.join(BASE_DIR, "stats.json")
 
 class Stats:
     def __init__(self):
@@ -23,8 +25,11 @@ class Stats:
                 pass
 
     def save(self):
-        with open(STATS_FILE, "w", encoding="utf-8") as f:
-            json.dump(self.data, f, indent=2, ensure_ascii=False)
+        try:
+            with open(STATS_FILE, "w", encoding="utf-8") as f:
+                json.dump(self.data, f, indent=2, ensure_ascii=False)
+        except:
+            pass
 
     def add_game(self, result, opponent="", move_count=0):
         self.data["games"] += 1

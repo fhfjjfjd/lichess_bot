@@ -1,11 +1,18 @@
 import os, json, sys, subprocess
 from logger import log
 
-def load_config():
-    return json.load(open("settings.json", encoding="utf-8"))
+# Xác định thư mục gốc của dự án
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def get_path(filename):
+    return os.path.join(BASE_DIR, filename)
+
+def load_settings():
+    path = get_path("settings.json")
+    return json.load(open(path, encoding="utf-8"))
 
 def reset_api_menu():
-    cfg = load_config()
+    cfg = load_settings()
     print("\n" + "=" * 55)
     print("🔑 RESET / CÀI ĐẶT API:")
     print("=" * 55)
@@ -15,10 +22,12 @@ def reset_api_menu():
     print("=" * 55)
     choice = input("Chọn (1-3): ").strip()
     if choice == "1":
-        if os.path.exists(cfg["lichess"]["token_file"]): os.remove(cfg["lichess"]["token_file"])
+        path = get_path(cfg["lichess"]["token_file"])
+        if os.path.exists(path): os.remove(path)
         log("🗑️ Đã xóa token Lichess.", "WARN")
     elif choice == "2":
-        if os.path.exists(cfg["openrouter"]["key_file"]): os.remove(cfg["openrouter"]["key_file"])
+        path = get_path(cfg["openrouter"]["key_file"])
+        if os.path.exists(path): os.remove(path)
         log("🗑️ Đã xóa OpenRouter Key.", "WARN")
 
 def main():
@@ -44,8 +53,10 @@ def main():
         }
         
         if choice in scripts:
+            script_path = get_path(scripts[choice])
             log(f"🚀 Khởi động {scripts[choice]}...")
-            subprocess.run([sys.executable, scripts[choice]])
+            # Chạy script với thư mục làm việc (cwd) là thư mục gốc của bot
+            subprocess.run([sys.executable, script_path], cwd=BASE_DIR)
         elif choice == "5":
             log("🔄 Đang khởi động lại...", "INFO")
             os.execv(sys.executable, [sys.executable] + sys.argv)
